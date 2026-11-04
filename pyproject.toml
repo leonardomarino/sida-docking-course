@@ -1,0 +1,20 @@
+[project]
+name = "sidacore"
+version = "0.1.0"
+description = "Shared, AF2-free structural layer for the SidA docking course and the SidA binder SOW"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["sidacore*"]
+
+[tool.setuptools.package-data]
+sidacore = ["config_schema.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

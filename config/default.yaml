@@ -1,0 +1,34 @@
+# Every value an experimentalist might reasonably change lives here -- not in code, not in a
+# notebook cell. Strictly validated against sidacore/config_schema.json: unknown or missing
+# keys are errors, never silent defaults. Every run writes the resolved copy next to its outputs.
+config_version: 1
+
+# --- docking parameters --------------------------------------------------------------------
+protonation_ph: 7.4              # default; Sobrado's assay pH overrides it (confirm with Sobrado)
+box_center_atom: "FAD:C4A"       # RESNAME:ATOM -- the hydroxylating position
+box_size_angstrom: [22, 22, 22]
+exhaustiveness: 32
+num_modes: 20
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]   # recorded with every run; Step 4 needs >= 10
+waters: "strip"                  # strip | keep | keep-within-pocket
+alt_conformers: "highest-occupancy"   # highest-occupancy | first
+redock_rmsd_acceptance: 2.0      # angstrom, symmetry-corrected, top-1
+
+# --- structures (Amendment 1, Step 0 closed) -----------------------------------------------
+# FAD always stays in the receptor: it is a cofactor, not the ligand, and is deliberately NOT a
+# parameter here -- a student who could switch it off would get docking wrong.
+ligand_resname: "ORN"            # L-ornithine, the substrate
+structures:
+  benchmark_primary: "4B63"      # 1.9 A, wild type, oxidized FAD, NADP+ORN
+  benchmark_secondary: "6X0J"    # same deposition batch as the pair; 4 chains = 4 redocks
+  fad_out: "6X0H"                # conformational pair; neither holds ORN
+  fad_in: "6X0I"
+redock_nadp: "keep"              # keep | strip -- ORN was crystallized with NADP; it lines the site
+
+# Step 5 arms. No deposited SidA has FAD-out WITH NADP, so FAD conformation and NADP occupancy
+# are confounded; the stripped arm is an unphysical empty cavity and does NOT remove that
+# confound. 6X0H has no NADP, so "keep" is vacuous for it.
+cross_docking_arms:
+  - {name: "6X0H_as_deposited", structure: "6X0H", nadp: "keep"}
+  - {name: "6X0I_with_nadp", structure: "6X0I", nadp: "keep"}
+  - {name: "6X0I_nadp_stripped", structure: "6X0I", nadp: "strip"}

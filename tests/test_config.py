@@ -24,7 +24,13 @@ def _write(tmp_path, data, name="c.yaml"):
 def test_default_config_matches_documented_defaults():
     c = load_config(DEFAULT)
     assert c.protonation_ph == 7.4
-    assert c.box_center_atom == "FAD:C4A"
+    # C4X is the isoalloxazine C4a (the hydroxylation site). "C4A" also exists in FAD but is the ADENINE
+    # carbon, 18 A away in 4B63: a box centred there would be silently wrong.
+    assert c.box_center_atom == "FAD:C4X"
+    assert c.config_version == 2
+    assert c.receptor_chain == "A"
+    assert c.ions == "strip"
+    assert c.pocket_radius_angstrom == 8.0
     assert c.box_size_angstrom == (22.0, 22.0, 22.0)
     assert c.exhaustiveness == 32
     assert c.num_modes == 20
@@ -73,6 +79,8 @@ def test_missing_key_is_rejected_no_silent_default(tmp_path):
     ("seeds", []), ("seeds", [1, 1, 2]), ("seeds", [1, 2.5]),
     ("waters", "maybe"), ("alt_conformers", "random"),
     ("redock_rmsd_acceptance", 0), ("redock_nadp", "sometimes"),
+    ("receptor_chain", ""), ("receptor_chain", "toolong"), ("ions", "some"),
+    ("pocket_radius_angstrom", 0), ("pocket_radius_angstrom", -3), ("config_version", 1),
 ])
 def test_invalid_values_are_rejected(tmp_path, key, bad):
     d = _raw(); d[key] = bad

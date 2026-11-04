@@ -1,17 +1,23 @@
 # Every value an experimentalist might reasonably change lives here -- not in code, not in a
 # notebook cell. Strictly validated against sidacore/config_schema.json: unknown or missing
 # keys are errors, never silent defaults. Every run writes the resolved copy next to its outputs.
-config_version: 1
+config_version: 2     # 2 (2026-11-04): receptor_chain, ions, pocket_radius_angstrom; box atom C4A -> C4X
 
 # --- docking parameters --------------------------------------------------------------------
 protonation_ph: 7.4              # default; Sobrado's assay pH overrides it (confirm with Sobrado)
-box_center_atom: "FAD:C4A"       # RESNAME:ATOM -- the hydroxylating position
+# RESNAME:ATOM, the hydroxylating position = isoalloxazine C4a, whose PDB atom name is C4X. NOT "C4A":
+# that name also exists in FAD but is the ADENINE carbon (18 A from C4X in 4B63), so it would not error,
+# it would silently centre the box on the wrong end of the cofactor. "FAD" also matches the reduced FDA.
+box_center_atom: "FAD:C4X"
 box_size_angstrom: [22, 22, 22]
 exhaustiveness: 32
 num_modes: 20
 seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]   # recorded with every run; Step 4 needs >= 10
 waters: "strip"                  # strip | keep | keep-within-pocket
-alt_conformers: "highest-occupancy"   # highest-occupancy | first
+alt_conformers: "highest-occupancy"   # highest-occupancy | first (chosen per RESIDUE, never mixed)
+ions: "strip"                    # strip | keep -- crystallization Ca2+ etc.; each is logged with its distance to the site
+receptor_chain: "A"              # chain used as the receptor; 6X0I chain C has a split FAD, avoid it
+pocket_radius_angstrom: 8.0      # around box_center_atom: keep-within-pocket waters, site residues listed in the report
 redock_rmsd_acceptance: 2.0      # angstrom, symmetry-corrected, top-1
 
 # --- structures (Amendment 1, Step 0 closed) -----------------------------------------------

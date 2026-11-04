@@ -93,3 +93,22 @@ Wall time includes the wrapper stopping/restoring `llama-swap` and a post-run mo
   the source repo. Use a `file://` URL or `git init` for scratch repos.
 - **Tooling note**: the `block-no-verify` hook false-positives on commands containing `commit` plus a `-n`-like token
   (`--name-only`, `bash -n`). No hook was skipped; such text was moved into script files.
+
+## 2026-11-04 (evening) — Step 2 and the GPU docking arm
+- **Tooling decided before code** (user: "do the tooling first", "Meeko end to end", "do not handroll scripts"): biotite for
+  selection/measurement, PDB2PQR + PROPKA for protein protonation, Meeko for the receptor and box. `sidacore.prep` is glue only.
+  Details, results and caveats: `reports/receptor_prep.md`, `reports/construct_check.md`.
+- **PDB2PQR/PROPKA were already installed**, in the `af2` env (PDB2PQR 3.7.1, PROPKA 3.5.1) and `pymol` (3.6.1); I had not looked.
+  Used by explicit path; `$SIDACORE_PDB2PQR` overrides. They are NOT in the pinned `sida-docking` env, so a laptop route still lacks them.
+- **Meeko cofactor templates**: `sidacore/data/meeko_cofactor_templates.json` (12.7 KB, FAD/FDA/NAP). The full 1.5 MB `--cache_templates`
+  file was deliberately NOT committed: loading it replaced Meeko's defaults and swapped proline CB/CD names in 25 residues. Offline
+  runs with the small file are byte-identical to clean online runs (4B63, 6X0J).
+- **GPU docking arm provisioned as root**: `/opt/miniforge3/envs/sida-docking-gpu` (Uni-Dock 1.2.0, Apache-2.0; cuda129 build), defined in
+  protein-binders `environments/` (commit `43b19f5` on `feat/sida-docking-env`). AutoDock-GPU, GNINA, Vina-GPU and DiffDock are not on
+  conda-forge/bioconda and were not evaluated. Verified as marino through `gpu-pipeline-wrapper`: scores agree with Vina to 0.01 kcal/mol;
+  5.7x faster than 24 CPU cores on a 200-ligand batch; slower for one ligand. `reports/gpu_docking_smoke.md`.
+- **Corrections to earlier notes**: the prompt's `box_center_atom: "FAD:C4A"` selects the adenine carbon (18 A from the site) and would not
+  have errored; the default is now `FAD:C4X` (config v2). biotite's `filter_amino_acids` counts ORN as an amino acid; the substrate is excluded
+  by `filter_canonical_amino_acids` plus a regression test.
+- **Mistake caught**: a shell redirect in a `sudo -u marino` command ran as root and created a root-owned log in the repo; fixed. Redirect
+  inside the `bash -c` string, not outside it.

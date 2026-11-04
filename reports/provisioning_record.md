@@ -57,12 +57,13 @@ measured figure goes here with the date. Written as marino-owned; root only prov
   the polkit rule; today it is inactive+disabled so nothing breaks, but if it were running the wrapper's
   `systemctl stop ... || true` would fail silently as marino and leave ~20 GB of VRAM held. Narrowest fix:
   add that one unit name to the rule's `allowed_units`. **Proposed, not applied** (system file).
-- **Root-owned entries inside `/opt/protein-optimization/.git`**: 1,688 (HEAD, index, config, object dirs, branch
-  dirs), from the weekly root cron (`/root/cron/update-conda-envs.sh` runs a bare `git commit` there) and root
-  sessions. marino cannot create branches in that repo (`cannot lock ref ... Permission denied`). Not fixed
-  here: the proper fix is for the cron to run git as marino. protein-binders work was done in the marino-owned
-  dev clone `/home/marino/GitHub/protein-binders` after a read-only fetch from `/opt/protein-optimization`.
-- `update-conda-envs.sh` commits whatever is staged, so nothing was staged in `/opt/protein-optimization`.
+- **`/opt/protein-optimization` is root-owned, by decision** (user, 2026-11-04): it is the authoritative repo and holds
+  production pieces, so it stays root's. marino therefore cannot commit or branch there (measured: 1,688 root-owned
+  entries in `.git`, 687 in the working tree; `cannot lock ref ... Permission denied`). This is not a defect to fix.
+  protein-binders work is done in the marino-owned dev clone `/home/marino/GitHub/protein-binders` after a read-only
+  fetch from `/opt/protein-optimization`, then pushed from the Mac and pulled into production. Verified at the end that
+  my work left the production checkout untouched (no new branches or worktrees, root-owned count unchanged at 1,688).
+- `update-conda-envs.sh` runs a bare `git commit` as root there; nothing was ever staged in `/opt/protein-optimization`.
 
 ### Measured: Boltz-2 smoke (provisioning check, NOT a scientific result)
 Input: SidA construct from 6X0H (494 aa incl. His-tag) + ORN, `msa: empty` (single-sequence), no FAD, affinity on,
@@ -83,7 +84,9 @@ Wall time includes the wrapper stopping/restoring `llama-swap` and a post-run mo
 - **Env copy for students**: `tools/sync_env.py` (tested, 36 tests / 99% coverage) copies the env files from protein-binders
   into `env/` at release time, stamped with commit + SHA-256, refusing dirty/untracked sources and stripping the
   `prefix:` line. Run against the real committed branch (`cc77c70`): works. `env/` stays empty until first release.
-- **Cron proposals drafted, not applied**: `reports/cron_proposals.md` + `reports/update-conda-envs.sh.patch`.
+- **Cron proposal drafted, not applied**: smoke-test `sida-docking` only (`reports/cron_proposals.md`,
+  `reports/update-conda-envs.sh.patch`). A second proposal (run the cron's git as marino) was **withdrawn** once the
+  user decided the production repo stays root-owned.
 - **Correction**: "mj-ai has no GitHub key" is true for marino but NOT for root: the weekly root cron pushes
   successfully. marino's `ssh -T git@github.com` is denied.
 - **Lesson**: a `git clone` from a local path hardlinks objects, so a `chown -R` on the clone would have changed ownership in

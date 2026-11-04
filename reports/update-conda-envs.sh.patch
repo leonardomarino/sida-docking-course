@@ -24,24 +24,3 @@
  FAILURES=$((FAILURES + n))
  
  # pymol: check schrodinger channel for new Incentive releases
-@@ -251,11 +261,16 @@
- echo ""
- echo "--- git ---"
- cd "$REPO"
--CHANGED=$("$GIT" diff --name-only environments/gromacs.yml environments/feasibility.yml 2>/dev/null)
-+# Commit AS marino (the repo owner) so root never writes into .git, and commit by PATHSPEC so anything
-+# else staged in this checkout is never swept in. Push stays root: marino has no GitHub key. Pushing by
-+# URL (not `origin`) means root writes no refs/remotes/* either.
-+MGIT=(sudo -u marino "$GIT" -C "$REPO")
-+YAMLS=(environments/gromacs.yml environments/feasibility.yml)
-+REMOTE_URL="git@github.com:leonardomarino/protein-binders.git"
-+CHANGED=$("${MGIT[@]}" diff --name-only -- "${YAMLS[@]}" 2>/dev/null)
- if [ -n "$CHANGED" ]; then
--    "$GIT" add environments/gromacs.yml environments/feasibility.yml
--    "$GIT" commit -m "chore: weekly conda env update $(date '+%Y-%m-%d')"
--    "$GIT" push origin master
-+    "${MGIT[@]}" commit -q -m "chore: weekly conda env update $(date '+%Y-%m-%d')" -- "${YAMLS[@]}"
-+    "$GIT" -C "$REPO" push -q "$REMOTE_URL" master
-     echo "  Pushed: $CHANGED"
- else
-     echo "  No YAML changes — nothing to commit"

@@ -1,0 +1,47 @@
+--- update-conda-envs.sh.orig
++++ update-conda-envs.sh
+@@ -8,6 +8,9 @@
+ #   modeller    : --all (salilab + conda-forge, small env)
+ #   ML envs     : NEVER touched (SE3nv/af2/proteinmpnn_binder_design/protenix)
+ #                 gromacs-gpu: NEVER touched (CUDA production MD — manual upgrade only)
++#   sida-docking: NEVER touched (frozen + exact-pinned; defined in protein-binders environments/).
++#                 Smoke-tested below with PYTHONDONTWRITEBYTECODE=1: this script runs as root, and an
++#                 import as root would otherwise write .pyc files into the read-only env (measured: 5).
+ #
+ # Smoke tests run after each update to catch broken imports or missing binaries.
+ # Overall PASS/FAIL is emailed via cron's mail mechanism if any test fails.
+@@ -211,6 +214,13 @@
+ smoke_py proteinmpnn_binder_design \
+     "/opt/miniforge3/envs/proteinmpnn_binder_design/bin/python" \
+     "torch:torch" || n=$((n + 1))
++PYTHONDONTWRITEBYTECODE=1 smoke_py sida-docking "/opt/miniforge3/envs/sida-docking/bin/python" \
++    "rdkit:rdkit" "vina:vina" "meeko:meeko" "openmm:openmm" \
++    "biotite:biotite" "pdbfixer:pdbfixer" || n=$((n + 1))
++smoke_cli sida-docking "vina CLI" \
++    "/opt/miniforge3/envs/sida-docking/bin/vina --version" "Vina" || n=$((n + 1))
++smoke_cli sida-docking "obabel CLI" \
++    "/opt/miniforge3/envs/sida-docking/bin/obabel -V" "Open Babel" || n=$((n + 1))
+ FAILURES=$((FAILURES + n))
+ 
+ # pymol: check schrodinger channel for new Incentive releases
+@@ -251,11 +261,16 @@
+ echo ""
+ echo "--- git ---"
+ cd "$REPO"
+-CHANGED=$("$GIT" diff --name-only environments/gromacs.yml environments/feasibility.yml 2>/dev/null)
++# Commit AS marino (the repo owner) so root never writes into .git, and commit by PATHSPEC so anything
++# else staged in this checkout is never swept in. Push stays root: marino has no GitHub key. Pushing by
++# URL (not `origin`) means root writes no refs/remotes/* either.
++MGIT=(sudo -u marino "$GIT" -C "$REPO")
++YAMLS=(environments/gromacs.yml environments/feasibility.yml)
++REMOTE_URL="git@github.com:leonardomarino/protein-binders.git"
++CHANGED=$("${MGIT[@]}" diff --name-only -- "${YAMLS[@]}" 2>/dev/null)
+ if [ -n "$CHANGED" ]; then
+-    "$GIT" add environments/gromacs.yml environments/feasibility.yml
+-    "$GIT" commit -m "chore: weekly conda env update $(date '+%Y-%m-%d')"
+-    "$GIT" push origin master
++    "${MGIT[@]}" commit -q -m "chore: weekly conda env update $(date '+%Y-%m-%d')" -- "${YAMLS[@]}"
++    "$GIT" -C "$REPO" push -q "$REMOTE_URL" master
+     echo "  Pushed: $CHANGED"
+ else
+     echo "  No YAML changes — nothing to commit"

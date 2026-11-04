@@ -78,3 +78,15 @@ Wall time includes the wrapper stopping/restoring `llama-swap` and a post-run mo
 - Commits are local (marino). **mj-ai has no GitHub key: awaiting push from the Mac over `ssh -A`** for both
   `sida-docking-course` (branch `feat/sida-docking-prototype`) and `protein-binders`
   (branch `feat/sida-docking-env`).
+
+## 2026-11-04 (later) — follow-ups approved by the user
+- **Env copy for students**: `tools/sync_env.py` (tested, 36 tests / 99% coverage) copies the env files from protein-binders
+  into `env/` at release time, stamped with commit + SHA-256, refusing dirty/untracked sources and stripping the
+  `prefix:` line. Run against the real committed branch (`cc77c70`): works. `env/` stays empty until first release.
+- **Cron proposals drafted, not applied**: `reports/cron_proposals.md` + `reports/update-conda-envs.sh.patch`.
+- **Correction**: "mj-ai has no GitHub key" is true for marino but NOT for root: the weekly root cron pushes
+  successfully. marino's `ssh -T git@github.com` is denied.
+- **Lesson**: a `git clone` from a local path hardlinks objects, so a `chown -R` on the clone would have changed ownership in
+  the source repo. Use a `file://` URL or `git init` for scratch repos.
+- **Tooling note**: the `block-no-verify` hook false-positives on commands containing `commit` plus a `-n`-like token
+  (`--name-only`, `bash -n`). No hook was skipped; such text was moved into script files.

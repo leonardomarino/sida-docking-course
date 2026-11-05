@@ -563,7 +563,8 @@ def _slug(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", s).strip("_") or "x"
 
 
-def _versions() -> dict:
+def tool_versions() -> dict:
+    """Versions of the tools a run depends on (recorded in run.json and shown in the notebook's run record)."""
     import subprocess
     import biotite, meeko, rdkit
     v = subprocess.run([str(_tool("vina")), "--version"], capture_output=True, text=True)
@@ -608,7 +609,7 @@ def run_screen(targets: list, ligands, *, settings: Settings = Settings(), cache
     (work_dir / "run.json").write_text(json.dumps({
         "time": time.strftime("%Y-%m-%d %H:%M:%S"), "settings": {k: (list(v) if isinstance(v, tuple) else v) for k, v in asdict(settings).items()},
         "targets": [_spec_json(s) for s in targets], "ligands": {e.name: {"input": e.input_smiles, "docked": e.smiles, "error": e.error} for e in entries},
-        "versions": _versions()}, indent=1))
+        "versions": tool_versions()}, indent=1))
     return ScreenResult(res, ctl, prepared, entries, clashes, poses, work_dir)
 
 

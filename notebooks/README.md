@@ -5,6 +5,8 @@ target with AutoDock Vina, and reports for each pair whether the best pose **cla
 and whether the protocol could be trusted on that target (a **redock control** of the deposited ligand). The worked example is SidA with
 L-ornithine. Code: `sidacore/screen.py`; tests: `tests/test_screen.py`, `tests/test_screen_notebook.py`.
 
+The notebook is laid out as a laboratory notebook entry: objective, background, methods, then the procedure and results, observations, interpretation of the worked example, limits and references (25: the 22 with a PubMed record were matched to it by DOI, authors and initials included, with `tools/verify_notebook_references.py`; Bondi 1964 was checked in Crossref; RDKit and Meeko are web addresses).
+
 It answers *can this molecule be placed here without overlapping the protein*. It does **not** rank affinity: on SidA, Vina scores mis-rank
 (see the notebook's "How to read the results" and `reports/step4_*`).
 
@@ -136,7 +138,7 @@ Edit the "parameters" cell (section 2 of the notebook): `TARGETS` (one `S.Target
 ## Tests (for developers)
 
 ```bash
-pytest -m "not slow" tests/test_screen.py     # 39 tests, ~2 s: clash arithmetic, ligand/target handling, no external programs
+pytest -m "not slow" tests/test_screen.py     # 40 tests, ~2 s: clash arithmetic, ligand/target handling, no external programs
 pytest -m slow tests/test_screen.py tests/test_screen_notebook.py   # run PDB2PQR, Meeko, Vina and the whole notebook (~2 min on 24 cores)
 ```
 
@@ -145,7 +147,7 @@ The other test files in `tests/` belong to the SidA docking course and need the 
 ## What was measured while building it (SidA, ligand-centred box, Linux 2026-11-05)
 
 * The generic preparation reproduces the validated Step 2 receptor for 4B63 atom for atom (test `test_generic_preparation_of_4b63_reproduces_the_validated_receptor`).
-* Redock control, 5 seeds: 4B63 **fails** at every box size 12-22 Å (median top-1 RMSD 4.7-4.9 Å); 6X0J chain A passes at every size (about 1 Å);
+* Redock control (3 seeds in the 12, 14 and 16 Å sweep, 5 seeds at 22 Å and in the notebook run): 4B63 **fails** at every box size 12-22 Å (median top-1 RMSD 4.7-4.9 Å); 6X0J chain A passes at every size (about 1 Å);
   6X0J chain C **fails at 22 Å (5.96 Å, as in Step 4) and passes at 12 Å (1.06 Å, 4 of 5 seeds)**: the control gets easier as the box tightens around the deposited ligand.
 * Oversized ligand (tetraphenylmethane): at 12 Å it is forced into the pocket (best-pose score +0.4 to +9 kcal/mol, 8-15 clashes, no clash-free pose); at 16-22 Å it docks at the rim with 0 clashes and a score better than the substrate's.
 * Clash thresholds (0.4 Å overlap, 2.4 Å N/O) come from five deposited ornithine poses: a small calibration set.

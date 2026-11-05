@@ -272,6 +272,12 @@ def test_preview_target_reports_kept_and_removed_without_running_any_tool():
     assert sel.kept_cofactors == ["FAD", "NAP"] and {r["res_name"] for r in sel.removed} >= {"SO4", "GOL", "HOH", "ORN"}
 
 
+@pytest.mark.skipif(not _have("vina"), reason="vina not available")
+def test_tool_versions_reports_the_version_of_every_tool_used():
+    v = S.tool_versions()
+    assert {"vina", "rdkit", "meeko", "biotite", "python"} <= set(v) and all(v.values())
+
+
 def test_check_tools_names_what_is_missing_and_finds_what_is_installed():
     got = S.check_tools()
     assert set(got) == {"vina", "obabel", "pdb2pqr30", "mk_prepare_receptor.py"}

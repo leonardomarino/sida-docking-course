@@ -3,6 +3,8 @@
 **Status: draft for the user's approval.** It becomes the registered rule when the user approves it and it is committed; nothing below has been run. If anything is changed after the first rescoring run, the run
 and the change are both reported, as in Steps 3-4.
 
+**Amended once, 2026-11-05: see Amendment 1 at the end. The text above it is the rule as registered in `92d2d0b`; Amendment 1 overrides only the clauses it names.**
+
 ## Question
 
 Step 4 left a ranking problem: for 4B63 the pose lists contain a near-native pose a few tenths of a kcal/mol behind a stable decoy (`step4_decoy_characterization.md`). **Does a scoring function other than Vina's put a
@@ -80,3 +82,25 @@ Adding a function, changing grid size, spacing, charges or atom types (other tha
 
 `confirm/rescore.py` in the course repo, the precedent being the PyRosetta checks: `vina` from `sida-docking` and `autogrid4` from `sida-docking-ad4` are called as subprocesses on files; `sidacore` imports neither and gains no dependency.
 Tests first (pose splitting, GPF writer, score parser, tie rule, the gate logic on synthetic inputs, G0 on one real job), then the run, then a generated `reports/step4_rescoring.md`. Cost: 2,000 `--score_only` calls and five AutoGrid runs, minutes on the CPU.
+
+---
+
+## Amendment 1 (2026-11-05, approved by the user; made before any AutoDock4 or Vinardo score was computed)
+
+**Why.** Gate G0 as registered failed. Run across all 1,000 poses it reported 534 poses more than 0.05 kcal/mol from the docking log (maximum 0.308) and stopped; nothing else was computed. The cause is the rule's premise, not the pipeline.
+The logged Vina score of pose k is `(INTER_k + INTRA_k - UNBOUND)/f`, with UNBOUND the internal energy of the file's first pose and `f = 1 + w*Nrot`. This holds for all 1,000 poses (maximum deviation 0.002, read from the REMARK lines).
+`vina --score_only` takes each input as its own reference, so the internal term cancels and it returns `INTER_k/f` (matches on the 8 poses checked, to 0.002). The two quantities are the same only for each file's first pose.
+
+**What had been seen when this was written** (disclosure, in addition to the one above): the 20 seed-1 Vina `--score_only` values of 4B63 (printed pose by pose against the log), the REMARK-line algebra over all 1,000 poses, and the G0 summary (counts only; the individual F0 scores of that run were not saved or read).
+No AutoDock4 score exists, and no Vinardo score other than the single smoke-test value disclosed above.
+
+**Clauses replaced.**
+
+1. *Procedure step 4 (score).* The score of a pose is the program's "Estimated Free Energy of Binding" from `--score_only`, which is the **interaction energy with no internal-strain term**, for F0, F1 and F2 alike. Ranking, ties (0.05 kcal/mol) and everything downstream use that quantity.
+2. *Gate G0.* F0 must reproduce `INTER_k/f` for every one of the 1,000 poses to within 0.05 kcal/mol, where `INTER_k` is the `REMARK INTER` value of pose k in the docking output and `f = INTER_1 / logged_1` of the same file. That is valid only if `INTRA_1 = UNBOUND` in the file (checked to 0.01; otherwise stop).
+   The expected deviation is about 0.002. If G0 fails, stop as before.
+3. *Baseline.* F0's own rescored top-1 RMSD per job is reported beside F1 and F2 as **"Vina, interaction energy only"**, with the same statistics. The docked Vina ranking (strain included) remains the Step 4 result and is reported unchanged.
+4. *Reading F1 and F2.* The outcome table is unchanged. One qualification is added now: if the F0 baseline itself reaches a median top-1 <= 2 Å on 4B63 **and** keeps the three controls, every F1 / F2 statement carries the sentence "Vina without its internal-strain term already does the same, so dropping that term, not the function, accounts for it."
+
+**Unchanged.** The inputs, the three functions, the AutoGrid values and the out-of-map rule, gate G1, the 2 Å criterion, the descriptive items, the list of changes not allowed, and the statements of what no outcome would show. One further consequence to bear in mind when reading results:
+interaction-only scoring cannot see ligand strain, so a pose that Vina's own ranking penalised for its internal energy is scored without that penalty by all three functions.

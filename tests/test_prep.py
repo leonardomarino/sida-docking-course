@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from sidacore.config import ConfigError, load_config
+from sidacore.prep import site_residue_ids
 from sidacore.prep import (SiteAtomError, fetch_structure, prepare_receptor, read_structure,
                            resolve_site_center, select_atoms)
 
@@ -153,3 +154,40 @@ def test_ph_change_produces_a_visible_diff_in_protonation_table(tmp_path):
     st = lambda d: {(r["res_name"], r["res_id"]): r["state"] for r in csv.DictReader((tmp_path / d / "protonation_states.csv").open())}
     a, b = st("lo"), st("hi")
     assert a != b                                                            # pH 4.0 vs 7.4 must change some site residue
+
+
+# ------------------------------------------------------------------ the substrate site (review finding): not a sphere about the cofactor
+def _res(chain, rid, name, xyz):
+    import biotite.structure as struc
+    a = struc.AtomArray(1)
+    a.coord = np.array([xyz], float)
+    a.chain_id[:], a.res_id[:], a.res_name[:], a.atom_name[:], a.element[:] = chain, rid, name, "CA", "C"
+    return a
+
+
+def test_site_is_every_residue_in_the_docking_box_or_touching_the_ligand():
+    atoms = _res("A", 1, "LYS", (5, 0, 0)) + _res("A", 2, "ASP", (30, 0, 0)) + _res("A", 3, "GLU", (60, 0, 0))
+    lig = np.array([[33.0, 0.0, 0.0]])                          # 3 A from residue 2, which is outside the box
+    site = site_residue_ids(atoms, center=(0, 0, 0), box_size=(22, 22, 22), ligand_xyz=lig, contact=4.5)
+    assert site == {("A", 1): {"in_box": True, "contacts_ligand": False}, ("A", 2): {"in_box": False, "contacts_ligand": True}}
+
+
+def test_without_a_ligand_the_site_is_the_box_alone():
+    atoms = _res("A", 1, "LYS", (5, 0, 0)) + _res("A", 2, "ASP", (30, 0, 0))
+    assert set(site_residue_ids(atoms, (0, 0, 0), (22, 22, 22))) == {("A", 1)}
+
+
+def test_the_box_is_a_cube_not_a_sphere():
+    atoms = _res("A", 1, "LYS", (10.5, 10.5, 10.5))                 # 18.2 A from the centre but inside the 22 A cube
+    assert ("A", 1) in site_residue_ids(atoms, (0, 0, 0), (22, 22, 22))
+
+
+@need
+@need_tools
+def test_the_protonation_table_now_lists_the_ionizable_residues_that_touch_the_substrate(cfg, tmp_path):
+    """Regression: Lys107 (and Asp288 in 6X0J) contact the ornithine but lie 9-12 A from C4X, outside the old 8 A sphere."""
+    prepare_receptor(CACHE / "4B63.cif", "4B63", "A", cfg, "keep", tmp_path / "r")
+    rows = {(r["res_name"], r["res_id"]): r for r in csv.DictReader((tmp_path / "r" / "protonation_states.csv").open())}
+    assert ("LYS", "107") in rows and rows[("LYS", "107")]["contacts_ligand"] == "True" and rows[("LYS", "107")]["in_box"] == "True"
+    assert {("HIS", "91"), ("LYS", "100"), ("ARG", "144")} <= set(rows)          # the old three are still there
+    assert all(r["state"] for r in rows.values())

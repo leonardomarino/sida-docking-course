@@ -27,12 +27,13 @@ def test_default_config_matches_documented_defaults():
     # C4X is the isoalloxazine C4a (the hydroxylation site). "C4A" also exists in FAD but is the ADENINE
     # carbon, 18 A away in 4B63: a box centred there would be silently wrong.
     assert c.box_center_atom == "FAD:C4X"
-    assert c.config_version == 3
+    assert c.config_version == 4
     assert c.receptor_chain == "A"
     assert c.ions == "strip"
     assert c.pocket_radius_angstrom == 8.0
     assert c.superposition_outlier_threshold == 1.5   # biotite's own default, now recorded with every run
     assert c.pocket_agreement_offset_angstrom == 5.0
+    assert c.site_contact_angstrom == 4.5          # residues within this of the deposited ligand belong to the site
     assert c.box_size_angstrom == (22.0, 22.0, 22.0)
     assert c.exhaustiveness == 32
     assert c.num_modes == 20
@@ -82,7 +83,8 @@ def test_missing_key_is_rejected_no_silent_default(tmp_path):
     ("waters", "maybe"), ("alt_conformers", "random"),
     ("redock_rmsd_acceptance", 0), ("redock_nadp", "sometimes"),
     ("receptor_chain", ""), ("receptor_chain", "toolong"), ("ions", "some"),
-    ("pocket_radius_angstrom", 0), ("pocket_radius_angstrom", -3), ("config_version", 2),
+    ("pocket_radius_angstrom", 0), ("pocket_radius_angstrom", -3), ("config_version", 3),
+    ("site_contact_angstrom", 0), ("site_contact_angstrom", -1),
     ("superposition_outlier_threshold", 0), ("superposition_outlier_threshold", "1.5"),
     ("pocket_agreement_offset_angstrom", 0), ("pocket_agreement_offset_angstrom", -1),
 ])

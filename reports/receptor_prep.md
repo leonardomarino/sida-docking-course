@@ -48,18 +48,28 @@ checksums, counts) and `resolved_config.yaml`. A directory that already exists i
 
 Site coordinates are in each crystal's own frame; Step 3 superposes the conformers before comparing them.
 
-### Ionizable residues within 8 A of C4X (state; PROPKA pKa / model pKa)
+### Ionizable residues of the substrate site (state; PROPKA pKa)
 
-| receptor | site ionizables |
-|---|---|
-| 4B63 | His91 HID (4.54/6.5), Lys100 + (10.31/10.5), Arg144 + (13.44/12.5) |
-| 6X0J (A) | His91 HID (4.27), Lys100 + (10.84), Arg144 + (11.02) |
-| 6X0H (FAD-out) | His91 HID (4.37), Tyr324 (11.88), Tyr407 (11.37), Arg409 + (11.58) |
-| 6X0I (FAD-in) | His91 HID (4.13), Lys100 + (10.18), Arg144 + (11.02), Arg328 + (11.14) |
+The site is every protein residue with an atom inside the docking box (the 22 A cube about C4X) plus any residue within
+`site_contact_angstrom` = 4.5 A of the deposited ligand (benchmark structures only). That gives 19-24 ionizable residues per receptor;
+the full tables are `prepared/<receptor>/protonation_states.csv`, with `in_box` and `contacts_ligand` columns. The docking inputs
+(receptor PDBQT, box) are byte-identical to those made with the earlier 8 A-sphere table: only this report changed.
 
-**Observation (not a conclusion):** the residues within 8 A of C4X differ between the two conformers. In 6X0H the site is
-lined by Tyr324, Tyr407 and Arg409; in 6X0I by Lys100, Arg144 and Arg328. Whether that changes substrate binding is
-what Step 5 tests; the two structures also differ in NADP occupancy, so the comparison cannot isolate FAD position.
+- **Residues that touch the deposited ornithine:** Lys107 in 4B63 and all four 6X0J chains (pKa 9.1-9.3, charged); Asp288 in the four 6X0J
+  chains but not in 4B63 (pKa 3.2-3.9, ionized). Both are in ordinary charged states in every receptor.
+- **His91** is HID everywhere (pKa 4.1-4.5, so neutral; PROPKA's histidine pKa is no better than assuming 6.5, treat as uncertain). **His228** differs
+  by structure (HID in 4B63, 6X0H and 6X0J chain B; HIE elsewhere). Glu260 has pKa 4.2 in 4B63 and 6.0-6.3 in the 6X0 structures; it is ionized
+  at pH 7.4 in all and neutral at pH 6.0 in 6X0I and 6X0J.
+
+**Retraction.** An earlier version of this section listed three to four ionizable residues from an 8 A sphere about C4X and concluded that the
+site residues differ between the conformers (Tyr324, Tyr407, Arg409 in 6X0H against Lys100, Arg144, Arg328 in 6X0I). That was an artefact of which
+residues sat at the edge of the sphere: with the corrected site, Lys100, Tyr324, Tyr407 and Arg409 are in every receptor. The sphere was centred on
+the cofactor, but the substrate sits 7.7-8.0 A from C4X, so it also missed Lys107 and Asp288.
+
+**What does differ between conformers (observation, not a conclusion):** the box centred on 6X0H's own C4X does not contain Lys107, Asp108 or
+Glu146, which are in the 6X0I box; the box carried from 6X0I into 6X0H does contain them (and has the same composition as 6X0I's own box). The
+carried box is therefore the comparable one for 6X0H. The two structures also differ in NADP occupancy, so the comparison cannot isolate FAD
+position.
 
 ## Caveats that Step 4's diagnosis must keep in view
 

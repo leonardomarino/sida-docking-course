@@ -1,8 +1,9 @@
 # Every value an experimentalist might reasonably change lives here -- not in code, not in a
 # notebook cell. Strictly validated against sidacore/config_schema.json: unknown or missing
 # keys are errors, never silent defaults. Every run writes the resolved copy next to its outputs.
-config_version: 3     # 2 (2026-11-04): receptor_chain, ions, pocket_radius_angstrom; box atom C4A -> C4X
+config_version: 4     # 2 (2026-11-04): receptor_chain, ions, pocket_radius_angstrom; box atom C4A -> C4X
                       # 3 (2026-11-04): superposition_outlier_threshold, pocket_agreement_offset_angstrom (Step 3)
+                      # 4 (2026-11-05): site_contact_angstrom; the substrate site is the docking box plus contacts of the deposited ligand
 
 # --- docking parameters --------------------------------------------------------------------
 protonation_ph: 7.4              # default; Sobrado's assay pH overrides it (confirm with Sobrado)
@@ -26,6 +27,10 @@ superposition_outlier_threshold: 1.5
 # Step 3. The box and fpocket "agree" only if the fpocket pocket holding most of the box is within this
 # many angstrom (alpha-sphere centroid to box centre) AND is the top-ranked pocket; otherwise it is reported.
 pocket_agreement_offset_angstrom: 5.0
+# The SUBSTRATE SITE (protonation table, Step 3 site RMSD) is every protein residue with an atom inside the docking box, plus any
+# residue within this many angstrom of the deposited ligand. It is NOT a sphere about the cofactor: the substrate sits 7.7-8.0 A from
+# C4X, so an 8 A sphere there missed Lys107 and Asp288, the ionizable residues that touch it.
+site_contact_angstrom: 4.5
 redock_rmsd_acceptance: 2.0      # angstrom, symmetry-corrected, top-1
 
 # --- structures (Amendment 1, Step 0 closed) -----------------------------------------------

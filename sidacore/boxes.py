@@ -24,7 +24,7 @@ import biotite.structure.io.pdb as pdb
 import numpy as np
 
 from .config import write_resolved
-from .prep import _run, read_structure, resolve_site_center
+from .prep import _run, read_structure, resolve_site_center, site_residue_ids
 
 
 # --------------------------------------------------------------------------- geometry
@@ -64,7 +64,7 @@ class SiteTransfer:
     site_max_displacement: float | None
 
 
-def transfer_site(ref, qry, ref_site, radius: float, outlier_threshold: float) -> SiteTransfer:
+def transfer_site(ref, qry, ref_site, radius: float, outlier_threshold: float, site_residues=None) -> SiteTransfer:
     """Carry `ref_site` (a point in the reference frame) into the query frame.
 
     The fit is trimmed of conformational outliers, so a moved loop cannot drag it. That would also hide the very
@@ -81,7 +81,10 @@ def transfer_site(ref, qry, ref_site, radius: float, outlier_threshold: float) -
         _, _, fix_all, mob_all = struc.superimpose_homologs(qry, ref, max_iterations=1)
         move = tf.apply
     disp = struc.distance(qry.coord[fix_all], move(ref.coord[mob_all]))
-    near = np.linalg.norm(ref.coord[mob_all] - ref_site, axis=1) <= radius
+    if site_residues is None:                                       # fallback: a sphere about the site point
+        near = np.linalg.norm(ref.coord[mob_all] - ref_site, axis=1) <= radius
+    else:                                                           # the substrate site, defined on the reference residues
+        near = np.array([(str(ref.chain_id[i]), int(ref.res_id[i])) in site_residues for i in mob_all], dtype=bool)
     trimmed = ~np.isin(mob_all, mob_i)
     return SiteTransfer(
         center_in_query=move(ref_site[None, :])[0],
@@ -273,7 +276,7 @@ def _asdict_plain(obj):
     return {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in d.items()}
 
 
-def analyze_job(job_dir: Path, cfg, ref_protein, ref_center, cif_cache: dict, out_dir: Path) -> dict:
+def analyze_job(job_dir: Path, cfg, ref_protein, ref_center, cif_cache: dict, out_dir: Path, ref_site=None) -> dict:
     rep = json.loads((job_dir / "prep_report.json").read_text())
     pid, chain = rep["pdb_id"], rep["chain"]
     atoms = cif_cache[pid]
@@ -284,7 +287,7 @@ def analyze_job(job_dir: Path, cfg, ref_protein, ref_center, cif_cache: dict, ou
         raise RuntimeError("%s: Step 2's receptor.box.txt (%s) disagrees with the C4X recomputed here (%s)" % (
             job_dir.name, prep_center.round(3), direct.round(3)))
     prot = protein_chain(atoms, chain)
-    tr = transfer_site(ref_protein, prot, ref_center, cfg.pocket_radius_angstrom, cfg.superposition_outlier_threshold)
+    tr = transfer_site(ref_protein, prot, ref_center, cfg.pocket_radius_angstrom, cfg.superposition_outlier_threshold, site_residues=ref_site)
     carried = np.asarray(tr.center_in_query, float)
     job_out = out_dir / job_dir.name
     job_out.mkdir(parents=True, exist_ok=True)
@@ -324,7 +327,9 @@ def analyze_all(cfg, prepared_root, cache_dir, out_root) -> dict:
     ref_atoms = cif[cfg.structures.fad_in]
     ref_protein = protein_chain(ref_atoms, cfg.receptor_chain)
     ref_center = resolve_site_center(ref_atoms, cfg.receptor_chain, cfg.box_center_atom)
-    results = [analyze_job(j, cfg, ref_protein, ref_center, cif, out_root) for j in jobs]
+    ref_site = set(site_residue_ids(ref_protein[ref_protein.element != "H"], ref_center, cfg.box_size_angstrom,
+                                    None, cfg.site_contact_angstrom))       # the reference has no ligand: the docking box
+    results = [analyze_job(j, cfg, ref_protein, ref_center, cif, out_root, ref_site) for j in jobs]
     report = {"reference": {"structure": cfg.structures.fad_in, "chain": cfg.receptor_chain,
                             "c4x_center": ref_center.round(3).tolist()},
               "box_size": list(cfg.box_size_angstrom),
@@ -357,7 +362,7 @@ def render_markdown(report: dict, notes: str = "") -> str:
         L.append("| %s | %s | %s | %s | %.0f%% |" % (j["job"], j["c4x_center"], j["carried_center"], _f(j["offset_c4x_vs_carried"]),
                                                     100 * j["box_overlap_c4x_vs_carried"]))
     L += ["", "## Superposition onto the reference", "",
-          "| receptor | aligned CA | trimmed | anchor RMSD (A) | site CA (<=%g A) | site trimmed | site RMSD (A) | site max (A) |" % s["pocket_radius_angstrom"],
+          "| receptor | aligned CA | trimmed | anchor RMSD (A) | site CA (residues in the box) | site trimmed | site RMSD (A) | site max (A) |",
           "|---|---|---|---|---|---|---|---|"]
     for j in report["jobs"]:
         t = j["superposition"]

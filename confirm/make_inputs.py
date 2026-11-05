@@ -64,9 +64,47 @@ def main(argv=None) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=1)
     a = ap.parse_args(argv)
-    rows = make_inputs(load_config(a.config), a.prepared, a.redock, a.out, seed=a.seed)
-    print("%d poses over %d receptors -> %s" % (len(rows), len({r["job"] for r in rows}), a.out))
+    cfg = load_config(a.config)
+    rows = make_inputs(cfg, a.prepared, a.redock, a.out, seed=a.seed)
+    starts = make_start_ligands(cfg, a.prepared, a.out, cfg.seeds)
+    print("%d poses over %d receptors, %d start ligands -> %s" % (len(rows), len({r["job"] for r in rows}), len(starts), a.out))
     return 0
+
+
+
+def make_start_ligands(cfg, prepared_root, out_root, seeds, only=None) -> list:
+    """One start ligand per seed for the Rosetta redock: an RDKit conformer (embedded with that seed) of the protonated
+    ligand, atom-named like the deposited ligand, its heavy-atom centroid placed at the centre of the C4X box. The crystal
+    pose is never used; the rows record each start's RMSD to it so a leak would be visible."""
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    from sidacore.boxes import read_vina_box
+    from sidacore.redock import prepare_ligand
+    smiles = prepare_ligand(cfg.ligand_resname, cfg.protonation_ph).smiles
+    template = ligand_template(cfg.ligand_resname)
+    rows = []
+    for job in benchmark_jobs(cfg, Path(prepared_root)):
+        if only and job.name not in only:
+            continue
+        ref = crystal_reference(job / "ligand_crystal.pdb", template)
+        centre, _ = read_vina_box(job / "receptor.box.txt")
+        d = Path(out_root) / job.name / "starts"
+        d.mkdir(parents=True, exist_ok=True)
+        for seed in seeds:
+            mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
+            if AllChem.EmbedMolecule(mol, randomSeed=int(seed)) != 0:
+                raise RuntimeError("could not embed %s with seed %d" % (smiles, seed))
+            AllChem.MMFFOptimizeMolecule(mol)
+            conf = mol.GetConformer()
+            xyz = conf.GetPositions()
+            heavy = [a.GetIdx() for a in mol.GetAtoms() if a.GetAtomicNum() > 1]
+            shift = centre - xyz[heavy].mean(axis=0)
+            for i in range(mol.GetNumAtoms()):
+                p = xyz[i] + shift
+                conf.SetAtomPosition(i, (float(p[0]), float(p[1]), float(p[2])))
+            (d / ("start_s%d.pdb" % seed)).write_text(_hetatm_only(pose_pdb_block(mol, ref)))
+            rows.append({"job": job.name, "seed": int(seed), "rmsd_to_crystal": pose_rmsd(mol, ref)})
+    return rows
 
 
 if __name__ == "__main__":

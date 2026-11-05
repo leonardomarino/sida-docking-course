@@ -30,14 +30,21 @@ size was a starting value, and choosing a size because it makes one receptor pas
 fixed in advance (for example the ligand's extent plus a stated margin) would have to be defined first and then all
 receptors re-run.
 
-**Two null results that are expected, not informative.** Zeroing FAD's partial charges changes nothing (identical to the
-baseline in every receptor), as it should: Vina's scoring function has no electrostatic term, so charges are not used. Receptor
-pH 6.0 and 8.5 changed none of the three residues in the Step 2 site table (His91, Lys100, Arg144 in 4B63), but that table does not list Lys107 (and Asp288 in 6X0J), which contact the deposited ornithine and lie 9.4-11.7 A from C4X, outside its 8 A radius, so their states were not examined;
-PROPKA's histidine pKa is unreliable (see the Step 2 note), and other His91 tautomers were not tried.
+**Two null results.** Zeroing FAD's partial charges changes nothing (identical to the
+baseline in every receptor), as it should: Vina's scoring function has no electrostatic term, so charges are not used. Receptor pH 6.0 and 8.5 were tested against the full site table (below): at pH 8.5 the docked receptor is byte-identical to the baseline; at pH 6.0 it differs (Glu260 becomes neutral in 6X0I and 6X0J, nothing in the site changes in 4B63) and the docking results still did not move. PROPKA's histidine pKa is unreliable (see the Step 2 note), and other His91 tautomers were not tried.
 
-**Not tested.** All crystal waters are stripped (262 in 4B63, the nearest 3.2 A from C4X) in a site that buries a +1 charge, and waters were never tried; Lys107 and Asp288 protonation (see above); Lys100 (modelled, not observed, in 4B63 and 6X0J) in alternative
+**Not tested.** All crystal waters are stripped (262 in 4B63, the nearest 3.2 A from C4X) in a site that buries a +1 charge, and waters were never tried; Lys100 (modelled, not observed, in 4B63 and 6X0J) in alternative
 positions; flexible side chains; other protonation states of the receptor beyond the pH values above; a different scoring
-function that includes electrostatics (the Rosetta check of this step was inconclusive); and the large 4B63 cavity (3,161 A^3 against 2,059-2,414 A^3 in 6X0J, fpocket volumes of the run on disk) as a cause.
+function that includes electrostatics (the Rosetta check of this step was inconclusive); and the large 4B63 cavity (about 3,200 A^3 against 2,059-2,414 A^3 in 6X0J; fpocket volumes, which vary by up to about 6% between runs) as a cause.
+
+**The corrected site table (Step 2).** The first table covered 3 ionizable residues because its site was an 8 A sphere about C4X, while the
+substrate sits 7.7-8.0 A from C4X. The site is now every protein residue with an atom in the docking box plus any residue within 4.5 A of the
+deposited ligand: 19-24 ionizable residues per receptor. Lys107 (touches the ornithine in all five structures that have one; pKa 9.1-9.3) and
+Asp288 (pKa 3.2-3.9; touches the ornithine in the four 6X0J chains but not in 4B63) are in their ordinary charged states in every receptor, so
+the protonation of the contact residues is not an explanation for the failures. The docking inputs (receptor PDBQT and box) are byte-identical
+to those made with the old table. The crystallographic binding mode has the ornithine carboxylate ion-paired with Lys107 and hydrogen bonds from
+Asn293, Ser469 and Asn323 (Robinson 2015, PMC6467063). Whether the failing poses lose that contact has not been measured; Vina has no
+electrostatic term, so a salt bridge would enter only through its hydrogen-bond term.
 
 **What the ladder establishes, stated once.** The failure of 6X0J chain C is resolved by removing either cofactor or by a box of 26-30 A (and
 flips with a 0.2 A shift of the box), consistent with a near-tie between two poses. The failure of 4B63, the primary benchmark, survives

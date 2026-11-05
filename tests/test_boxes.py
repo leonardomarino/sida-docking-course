@@ -278,3 +278,15 @@ def test_render_only_rebuilds_the_step3_report_from_the_retained_json_without_re
     from sidacore.boxes import main as bmain
     assert bmain(["--render-only", str(out), "--report", str(tmp_path / "r.md")]) == 0
     assert "## Boxes" in (tmp_path / "r.md").read_text()
+
+
+def test_site_rmsd_can_be_restricted_to_named_reference_residues():
+    ref = _chain()
+    qry = ref.copy()
+    qry.coord = ref.coord + [3.0, 0, 0] + np.random.default_rng(3).normal(0, 0.1, ref.coord.shape)
+    qry.coord[20] += [0.0, 5.0, 0.0]                              # residue 21 moves 5 A
+    site = {("A", 21), ("A", 22)}                                 # res_id = index + 1
+    got = transfer_site(ref, qry, ref.coord[20], radius=1.0, outlier_threshold=1.5, site_residues=site)
+    assert got.n_site == 2 and got.site_max_displacement > 4.0
+    far = transfer_site(ref, qry, ref.coord[20], radius=1.0, outlier_threshold=1.5, site_residues={("A", 5)})
+    assert far.n_site == 1 and far.site_max_displacement < 1.0

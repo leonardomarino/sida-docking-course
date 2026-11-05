@@ -215,10 +215,26 @@ def ionization_state(res_name: str, hydrogens: set):
     return ("ARG", 1)
 
 
-def protonation_rows(prot_h, center, radius, pkas) -> list:
-    cl = struc.CellList(prot_h, cell_size=max(radius, 2.0))
-    near = cl.get_atoms(center, radius)
-    keys = sorted({(str(prot_h.chain_id[i]), int(prot_h.res_id[i]), str(prot_h.res_name[i])) for i in near})
+def site_residue_ids(atoms, center, box_size, ligand_xyz=None, contact: float = 4.5) -> dict:
+    """The substrate site: {(chain, res_id): {"in_box", "contacts_ligand"}} for every residue of `atoms` (heavy atoms) with an
+    atom inside the docking box (an axis-aligned cube about `center`) or within `contact` A of the deposited ligand."""
+    xyz = atoms.coord
+    in_box = np.all(np.abs(xyz - np.asarray(center, float)) <= np.asarray(box_size, float) / 2, axis=1)
+    near = np.zeros(len(xyz), bool)
+    if ligand_xyz is not None and len(ligand_xyz):
+        hit = struc.CellList(atoms, cell_size=max(contact, 2.0)).get_atoms(np.asarray(ligand_xyz, float), contact)
+        near[np.unique(hit[hit >= 0])] = True
+    site = {}
+    for i in np.nonzero(in_box | near)[0]:
+        d = site.setdefault((str(atoms.chain_id[i]), int(atoms.res_id[i])), {"in_box": False, "contacts_ligand": False})
+        d["in_box"] = d["in_box"] or bool(in_box[i])
+        d["contacts_ligand"] = d["contacts_ligand"] or bool(near[i])
+    return site
+
+
+def protonation_rows(prot_h, site, center, pkas) -> list:
+    names = {(str(c), int(r)): str(n) for c, r, n in zip(prot_h.chain_id, prot_h.res_id, prot_h.res_name)}
+    keys = sorted((c, r, names[(c, r)]) for (c, r) in site)
     rows = []
     for chain, rid, rname in keys:
         if rname not in IONIZABLE:
@@ -228,6 +244,7 @@ def protonation_rows(prot_h, center, radius, pkas) -> list:
         pka, model = pkas.get((rname, rid, chain), ("", ""))
         rows.append({"chain_id": chain, "res_id": rid, "res_name": rname, "state": state, "net_charge": q, "pKa": pka,
                      "model_pKa": model, "dist_to_site": round(float(np.linalg.norm(res.coord - center, axis=1).min()), 2),
+                     "in_box": site[(chain, rid)]["in_box"], "contacts_ligand": site[(chain, rid)]["contacts_ligand"],
                      "note": HIS_NOTE if rname == "HIS" else ""})
     return rows
 
@@ -322,9 +339,11 @@ def prepare_receptor(cif_path, pdb_id, chain, cfg, nadp, out_dir, *, pdb2pqr=Non
     deleted = [{"chain": c, "res_id": r, "res_name": n,
                 "dist_to_site": round(float(np.linalg.norm(combo.coord[(combo.chain_id == c) & (combo.res_id == r)] - center, axis=1).min()), 1)}
                for c, r, n in gone]
-    rows = protonation_rows(prot_h, center, cfg.pocket_radius_angstrom, parse_propka(ptext))
+    heavy_h = prot_h[prot_h.element != "H"]
+    site = site_residue_ids(heavy_h, center, box, None if sel.ligand is None else sel.ligand.coord, cfg.site_contact_angstrom)
+    rows = protonation_rows(prot_h, site, center, parse_propka(ptext))
     _write_csv(out_dir / "protonation_states.csv", rows,
-               ["chain_id", "res_id", "res_name", "state", "net_charge", "pKa", "model_pKa", "dist_to_site", "note"])
+               ["chain_id", "res_id", "res_name", "state", "net_charge", "pKa", "model_pKa", "dist_to_site", "in_box", "contacts_ligand", "note"])
     prot_only = kept[struc.filter_canonical_amino_acids(kept)]
     rebuilt = parse_rebuilt_atoms(log1 + "\n" + ptext)
     for r in rebuilt["residues"]:                       # modelled atoms feed the docking: how close to the site are they?
@@ -338,6 +357,9 @@ def prepare_receptor(cif_path, pdb_id, chain, cfg, nadp, out_dir, *, pdb2pqr=Non
         "fad_retained_in_receptor": bool(np.isin(kept.res_name, FLAVIN).any()), "fad_statement": FAD_STATEMENT,
         "removed_by_reason": dict(Counter(r["reason"] for r in log)), "n_atoms_kept": int(kept.array_length()),
         "substrate_set_aside": None if sel.ligand is None else {"res_name": cfg.ligand_resname, "n_atoms": int(sel.ligand.array_length())},
+        "site_definition": {"rule": "protein residues with an atom in the docking box, plus residues within site_contact_angstrom of the "
+                            "deposited ligand (if the structure has one)", "box_size": box, "contact_angstrom": cfg.site_contact_angstrom,
+                            "n_residues": len(site), "n_ionizable": len(rows), "ligand_used": sel.ligand is not None},
         "pdb2pqr_rebuilt_atoms": rebuilt, "meeko_deleted_residues": deleted,
         "cofactors": pdbqt_cofactors(out_dir / "receptor.pdbqt"), "backbone_gaps_not_rebuilt": backbone_gaps(prot_only, center),
         "tools": {"biotite": biotite.__version__, "meeko": _version([_meeko_bin(), "--help"]) and __import__("meeko").__version__,

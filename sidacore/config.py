@@ -59,6 +59,7 @@ class Config:
     pocket_radius_angstrom: float
     superposition_outlier_threshold: float
     pocket_agreement_offset_angstrom: float
+    site_contact_angstrom: float
     overrides: Mapping[str, Any]
     source_path: str
     source_sha256: str
@@ -126,7 +127,8 @@ def load_config(path, overrides: Mapping[str, Any] | None = None) -> Config:
                                   "exhaustiveness", "num_modes", "waters", "alt_conformers",
                                   "redock_rmsd_acceptance", "ligand_resname", "redock_nadp",
                                   "receptor_chain", "ions", "pocket_radius_angstrom",
-                                  "superposition_outlier_threshold", "pocket_agreement_offset_angstrom")},
+                                  "superposition_outlier_threshold", "pocket_agreement_offset_angstrom",
+                                  "site_contact_angstrom")},
         box_size_angstrom=tuple(float(x) for x in merged["box_size_angstrom"]),
         seeds=tuple(merged["seeds"]),
         structures=Structures(**merged["structures"]),

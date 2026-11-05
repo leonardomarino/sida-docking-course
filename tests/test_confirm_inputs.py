@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from confirm.make_inputs import make_inputs
+from confirm.make_inputs import make_inputs, make_start_ligands
 from sidacore.config import load_config
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,3 +51,43 @@ def test_manifest_top1_rmsd_agrees_with_the_redock_report(made):
     seed1 = next(r for r in rep["results"] if r["job"] == JOB and r["engine"] == "vina")["per_seed"][0]
     top1 = next(r for r in rows if r["engine"] == "vina" and r["rank"] == 1)
     assert top1["rmsd_to_crystal"] == pytest.approx(seed1["top1_rmsd"], abs=1e-3)
+
+
+# ------------------------------------------------------------------ start ligands for the Rosetta redock
+@pytest.fixture(scope="module")
+def starts(tmp_path_factory):
+    out = tmp_path_factory.mktemp("starts")
+    cfg = load_config(ROOT / "config" / "default.yaml")
+    return out, make_start_ligands(cfg, PREPARED, out, seeds=(1, 2, 3), only=[JOB])
+
+
+def _xyz(path):
+    return [(l[12:16].strip(), float(l[30:38]), float(l[38:46]), float(l[46:54])) for l in Path(path).read_text().splitlines() if l.startswith("HETATM")]
+
+
+def test_one_named_start_ligand_per_seed_centred_on_the_box(starts):
+    out, rows = starts
+    box = [float(x.split("=")[1]) for x in (PREPARED / JOB / "receptor.box.txt").read_text().splitlines()[:3]]
+    assert [r["seed"] for r in rows] == [1, 2, 3]
+    for r in rows:
+        atoms = _xyz(out / JOB / "starts" / ("start_s%d.pdb" % r["seed"]))
+        assert sorted(a[0] for a in atoms) == sorted(["N", "CA", "CB", "CG", "CD", "NE", "C", "O", "OXT"])
+        c = [sum(a[i] for a in atoms) / 9 for i in (1, 2, 3)]
+        assert max(abs(c[i] - box[i]) for i in range(3)) < 0.01
+
+
+def test_no_start_ligand_is_near_the_deposited_pose(starts):
+    """The start must not leak the answer: every start is far (symmetry-corrected RMSD) from the crystal pose."""
+    _, rows = starts
+    assert all(r["rmsd_to_crystal"] > 3.0 for r in rows)
+
+
+def test_the_seeds_give_more_than_one_internal_geometry(starts):
+    """Compared by interatomic distances, which do not depend on orientation, so this tests the conformers themselves."""
+    import numpy as np
+    out, _ = starts
+    def dm(seed):
+        xyz = np.array([[x, y, z] for _, x, y, z in sorted(_xyz(out / JOB / "starts" / ("start_s%d.pdb" % seed)))])
+        return np.linalg.norm(xyz[:, None] - xyz[None], axis=2)
+    d = [dm(s) for s in (1, 2, 3)]
+    assert max(np.abs(d[i] - d[j]).max() for i in range(3) for j in range(i + 1, 3)) > 0.1

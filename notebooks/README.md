@@ -28,10 +28,10 @@ conda --version      # any conda or mamba will do
 No conda? Install one, then **open a new terminal**:
 
 ```bash
-brew install --cask miniforge        # or: brew install --cask miniconda
+brew install --cask miniconda        # the route the tested install used
 ```
 
-(Homebrew itself: https://brew.sh. The environment file asks only for the free `conda-forge` channel.)
+(Homebrew itself: https://brew.sh. Miniforge, `brew install --cask miniforge`, should work the same way but has not been tried here. The environment file asks only for the free `conda-forge` channel.)
 
 ### 2. Get the code
 

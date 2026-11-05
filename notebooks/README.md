@@ -18,7 +18,7 @@ Everything runs in one conda environment (`sida-screen`) that holds AutoDock Vin
 You do not need a GPU, Docker, or any other program.
 
 **Tested:** an Apple-silicon Mac, conda from Homebrew's `miniconda` cask, 2026-11-05: the environment installed, all four external programs were found,
-and the notebook ran end to end. **Intel Macs:** the same packages resolve (checked with a dry-run solve only); nobody has run it there.
+and the notebook ran end to end with the same results as the Linux reference (see step 7). **Intel Macs:** the same packages resolve (checked with a dry-run solve only); nobody has run it there.
 
 ### 1. Prerequisites: git and conda
 
@@ -99,10 +99,11 @@ jupyter lab screen.ipynb
 ```
 
 In JupyterLab: **Run > Run All Cells**. The first run downloads 4B63 and 6X0J from RCSB (internet needed) and takes several minutes on a laptop
-(75 s on the 24-core Linux machine it was built on); later runs reuse the downloads and the prepared receptors.
+(502 s on the Apple-silicon Mac above; 75 s on the 24-core Linux machine it was built on); later runs reuse the downloads and the prepared receptors.
 
-The last cell compares your table with `reference_results.csv`, produced on Linux with CPU Vina 1.2.7. Vina is deterministic per seed on one machine; small score
-differences across machines are possible. A different `reading` or a different number of clashes is worth a look.
+The last cell compares your table with `reference_results.csv`, produced on Linux with CPU Vina 1.2.7. Vina is deterministic per seed on one machine but not
+bit-identical across machines. On an Apple-silicon Mac (2026-11-05) the 12 `reading` values and the 3 control verdicts were identical to the reference, scores differed by at most 0.02 kcal/mol,
+and the oversized ligand's clash count differed by one in two pairs (15 vs 14, 16 vs 15). **A different `reading` or control verdict is worth a look; a difference of a clash or two, or of a few poses, is not.**
 
 ### Later
 

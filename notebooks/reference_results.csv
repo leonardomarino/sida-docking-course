@@ -1,0 +1,13 @@
+target,ligand,best_score,n_clashes,n_clash_free,n_poses,centroid_dist,site_contact_fraction,reading
+4B63_A,L-ornithine (substrate),-4.914,0,60,60,2.606,0.909,"(target failed its control) fits: clash-free, in the site"
+4B63_A,L-lysine,-5.376,0,60,60,2.155,1.0,"(target failed its control) fits: clash-free, in the site"
+4B63_A,L-arginine,-6.215,0,60,60,1.834,1.0,"(target failed its control) fits: clash-free, in the site"
+4B63_A,tetraphenylmethane (too big on purpose),0.375,8,0,38,4.764,0.545,(target failed its control) clashes in every pose (all 38)
+6X0J_A,L-ornithine (substrate),-5.18,0,60,60,0.124,0.833,"fits: clash-free, in the site"
+6X0J_A,L-lysine,-5.643,0,60,60,0.649,1.0,"fits: clash-free, in the site"
+6X0J_A,L-arginine,-6.752,0,59,60,1.532,0.917,"fits: clash-free, in the site"
+6X0J_A,tetraphenylmethane (too big on purpose),8.879,14,0,24,1.867,1.0,clashes in every pose (all 24)
+6X0J_C,L-ornithine (substrate),-5.131,0,59,59,2.927,0.833,"fits: clash-free, in the site"
+6X0J_C,L-lysine,-5.634,0,59,59,0.775,0.917,"fits: clash-free, in the site"
+6X0J_C,L-arginine,-6.587,0,60,60,1.19,1.0,"fits: clash-free, in the site"
+6X0J_C,tetraphenylmethane (too big on purpose),9.274,15,0,24,1.865,1.0,clashes in every pose (all 24)

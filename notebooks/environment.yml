@@ -1,0 +1,30 @@
+# Portable top-level spec for the SidA screening notebook (linux-64 and osx-arm64). Hand-written on purpose:
+# `conda env export` snapshots carry linux-only builds. Versions of the numerical stack match the validated
+# `sida-docking` env; PDB2PQR/PROPKA match the `af2` env that sidacore.prep borrows them from.
+# No fpocket, Uni-Dock, AutoGrid or Rosetta: the notebook needs none of them.
+name: sida-screen
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - vina=1.2.7
+  - meeko=0.8.0
+  - biotite=1.6.0
+  - rdkit=2026.03.1
+  - openbabel=3.2.1
+  - numpy=1.26.4
+  - pandas
+  - scipy
+  - matplotlib
+  - pyyaml
+  - jsonschema
+  - py3dmol
+  - jupyterlab
+  - ipykernel
+  - nbclient
+  - nbformat
+  - pytest
+  - pip
+  - pip:
+      - pdb2pqr==3.7.1
+      - propka==3.5.1

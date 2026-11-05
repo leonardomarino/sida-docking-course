@@ -19,8 +19,6 @@ pose is near-native in 3 of 10 seeds (3, 4, 10), so there the choice between two
 **Rosetta does not settle it** (`step4_rosetta.md`): it neither endorses the passing redocks nor prefers the near-native pose
 in the failing ones.
 
-**Not yet done, and required by the step.** The prescribed diagnosis, in this order: ligand protonation, box centre and size,
-FAD treatment, receptor protonation, each change reported with its effect. Candidates I have not tested and do not claim:
-a head-to-tail orientation difference of the ornithine (its two amines are chemically similar), the receptor protonation
-(PROPKA's histidine pKa is unreliable; Lys100 is modelled, not observed, in 4B63 and 6X0J), and 4B63's much larger fpocket
-cavity (3,325 A^3 against 2,100-2,400 A^3 in 6X0J).
+**Diagnosis done** (`step4_diagnosis.md`, notes in `step4_diagnosis_notes.md`). In the prescribed order (ligand protonation, box,
+FAD treatment, receptor protonation) no single-factor change rescues 4B63, so the primary benchmark still fails. 6X0J chain C is
+a near-tie (0.04 kcal/mol) that flips with a larger box or with either cofactor removed. Nothing has been adopted as a fix.

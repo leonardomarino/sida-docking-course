@@ -58,7 +58,7 @@ def protonate(template, ph: float) -> str:
 class LigandPrep:
     pdbqt: str
     smiles: str               # the protonated molecule that was docked
-    ph: float
+    ph: float | None          # the pH it was protonated at; None when the state was given explicitly
     net_charge: int           # formal charge of that molecule
     n_atoms: int              # ATOM lines in the PDBQT (heavy + polar hydrogens)
     n_heavy: int
@@ -66,23 +66,27 @@ class LigandPrep:
     partial_charge_sum: float
 
 
-def prepare_ligand(resname: str, ph: float, embed_seed: int = EMBED_SEED) -> LigandPrep:
-    """Protonate at `ph`, embed in 3D with RDKit (charges survive; `obabel -p ... --gen3d` silently dropped them), Meeko."""
-    smi = protonate(ligand_template(resname), ph)
-    mol = Chem.AddHs(Chem.MolFromSmiles(smi))
+def ligand_from_smiles(smiles: str, ph: float | None = None, embed_seed: int = EMBED_SEED) -> LigandPrep:
+    """A protonated SMILES -> 3D (RDKit; charges survive) -> Meeko PDBQT."""
+    mol = Chem.AddHs(Chem.MolFromSmiles(smiles))
     if AllChem.EmbedMolecule(mol, randomSeed=embed_seed) != 0:
-        raise RuntimeError("RDKit could not embed %s in 3D" % smi)
+        raise RuntimeError("RDKit could not embed %s in 3D" % smiles)
     AllChem.MMFFOptimizeMolecule(mol)
     setups = MoleculePreparation().prepare(mol)
     pdbqt, ok, err = PDBQTWriterLegacy.write_string(setups[0])
     if not ok:
-        raise RuntimeError("Meeko could not write %s: %s" % (smi, err))
+        raise RuntimeError("Meeko could not write %s: %s" % (smiles, err))
     atoms = [l for l in pdbqt.splitlines() if l.startswith(("ATOM", "HETATM"))]
     return LigandPrep(
-        pdbqt=pdbqt, smiles=smi, ph=ph, net_charge=Chem.GetFormalCharge(mol), n_atoms=len(atoms),
+        pdbqt=pdbqt, smiles=smiles, ph=ph, net_charge=Chem.GetFormalCharge(mol), n_atoms=len(atoms),
         n_heavy=sum(1 for a in mol.GetAtoms() if a.GetAtomicNum() > 1),
         torsdof=int(re.search(r"TORSDOF\s+(\d+)", pdbqt).group(1)),
         partial_charge_sum=float(sum(float(l[70:76]) for l in atoms)))
+
+
+def prepare_ligand(resname: str, ph: float, embed_seed: int = EMBED_SEED) -> LigandPrep:
+    """Protonate at `ph`, embed in 3D with RDKit (`obabel -p ... --gen3d` silently dropped the charges), Meeko."""
+    return ligand_from_smiles(protonate(ligand_template(resname), ph), ph, embed_seed)
 
 
 # --------------------------------------------------------------------------- reference pose and RMSD
@@ -218,12 +222,12 @@ def evaluate_seeds(per_seed: list, accept: float, min_seeds: int | None = None) 
 
 
 # --------------------------------------------------------------------------- one receptor, one engine, all seeds
-def redock_seeds(job_dir: Path, lp: LigandPrep, ref, cfg, engine: str, out_dir: Path) -> list:
+def redock_seeds(job_dir: Path, lp: LigandPrep, ref, cfg, engine: str, out_dir: Path, receptor=None, box_file=None) -> list:
     """Dock the prepared ligand into one prepared receptor once per configured seed; RMSD of every pose to the deposited one."""
     runner = {"vina": run_vina, "unidock": run_unidock}[engine]
     rows = []
     for seed in cfg.seeds:
-        out = runner(job_dir / "receptor.pdbqt", lp.pdbqt, job_dir / "receptor.box.txt", seed=seed,
+        out = runner(receptor or job_dir / "receptor.pdbqt", lp.pdbqt, box_file or job_dir / "receptor.box.txt", seed=seed,
                      exhaustiveness=cfg.exhaustiveness, num_modes=cfg.num_modes, out_dir=out_dir)
         poses = read_poses(out.read_text())
         rm = [pose_rmsd(m, ref) for _, m in poses]

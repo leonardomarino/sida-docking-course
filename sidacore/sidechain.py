@@ -42,9 +42,9 @@ def _matched(ref, qry, anchors):
     return np.array(ri, dtype=int), np.array(qi, dtype=int)
 
 
-def displacement_after_fit(ref, qry, atom_name: str, anchors=None, within=None, res_id=None) -> dict:
-    """Superimpose `qry` onto `ref` over matched anchor atoms, then return how far `atom_name` of the same residue number is from its reference position.
-    `anchors`: atom names to fit on (None = every matched atom). `res_id`: which residue's `atom_name` to measure (None = it must be unique). `within`: (centre, radius) keeps only anchors whose reference position lies in that sphere."""
+def fit_transform(ref, qry, anchors=None, within=None):
+    """Rigid fit of `qry` onto `ref` over matched anchor atoms. Returns (transform, n_anchors, fit_rmsd).
+    `anchors`: atom names to fit on (None = every matched atom). `within`: (centre, radius) keeps only anchors whose reference position lies in that sphere."""
     ri, qi = _matched(ref, qry, anchors)
     if within is not None:
         keep = struc.distance(ref.coord[ri], np.asarray(within[0])) <= within[1]
@@ -53,13 +53,19 @@ def displacement_after_fit(ref, qry, atom_name: str, anchors=None, within=None, 
         raise ValueError("only %d anchor atoms to fit on" % len(ri))
     ref_a, qry_a = ref[ri], qry[qi]
     _, tf = struc.superimpose(ref_a, qry_a)
-    fitted_anchor = tf.apply(qry_a)
+    return tf, int(len(ri)), float(struc.rmsd(ref_a, tf.apply(qry_a)))
+
+
+def displacement_after_fit(ref, qry, atom_name: str, anchors=None, within=None, res_id=None) -> dict:
+    """Fit `qry` onto `ref` (see fit_transform), then return how far `atom_name` of the same residue is from its reference position.
+    `res_id`: which residue's `atom_name` to measure (None = it must be unique)."""
+    tf, n, rmsd = fit_transform(ref, qry, anchors, within)
     pick = (lambda a: a[(a.atom_name == atom_name) & ((a.res_id == res_id) if res_id is not None else True)])
     ref_atom, qry_atom = pick(ref), pick(qry)
     if len(ref_atom) != 1 or len(qry_atom) != 1:
         raise ValueError("atom %s must occur exactly once in each structure's residue (found %d and %d)" % (atom_name, len(ref_atom), len(qry_atom)))
     moved = tf.apply(qry_atom.coord)[0]
-    return {"displacement": float(np.linalg.norm(moved - ref_atom.coord[0])), "n_anchors": int(len(ri)), "fit_rmsd": float(struc.rmsd(ref_a, fitted_anchor))}
+    return {"displacement": float(np.linalg.norm(moved - ref_atom.coord[0])), "n_anchors": n, "fit_rmsd": rmsd}
 
 
 # ---------------------------------------------------------------------------------------------- real structures

@@ -1,7 +1,8 @@
 # Every value an experimentalist might reasonably change lives here -- not in code, not in a
 # notebook cell. Strictly validated against sidacore/config_schema.json: unknown or missing
 # keys are errors, never silent defaults. Every run writes the resolved copy next to its outputs.
-config_version: 2     # 2 (2026-11-04): receptor_chain, ions, pocket_radius_angstrom; box atom C4A -> C4X
+config_version: 3     # 2 (2026-11-04): receptor_chain, ions, pocket_radius_angstrom; box atom C4A -> C4X
+                      # 3 (2026-11-04): superposition_outlier_threshold, pocket_agreement_offset_angstrom (Step 3)
 
 # --- docking parameters --------------------------------------------------------------------
 protonation_ph: 7.4              # default; Sobrado's assay pH overrides it (confirm with Sobrado)
@@ -18,6 +19,13 @@ alt_conformers: "highest-occupancy"   # highest-occupancy | first (chosen per RE
 ions: "strip"                    # strip | keep -- crystallization Ca2+ etc.; each is logged with its distance to the site
 receptor_chain: "A"              # chain used as the receptor; 6X0I chain C has a split FAD, avoid it
 pocket_radius_angstrom: 8.0      # around box_center_atom: keep-within-pocket waters, site residues listed in the report
+# Step 3. The 6X0I box is carried into other structures by CA superposition (biotite
+# superimpose_homologs); anchors farther than this many interquartile ranges from the median are dropped
+# and the fit repeated. 1.5 is biotite's own default, recorded here so it is never silent.
+superposition_outlier_threshold: 1.5
+# Step 3. The box and fpocket "agree" only if the fpocket pocket holding most of the box is within this
+# many angstrom (alpha-sphere centroid to box centre) AND is the top-ranked pocket; otherwise it is reported.
+pocket_agreement_offset_angstrom: 5.0
 redock_rmsd_acceptance: 2.0      # angstrom, symmetry-corrected, top-1
 
 # --- structures (Amendment 1, Step 0 closed) -----------------------------------------------

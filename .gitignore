@@ -6,3 +6,4 @@ runs/
 .coverage
 structures_cache/
 prepared/
+boxes/

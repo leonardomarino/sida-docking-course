@@ -234,3 +234,52 @@ def test_render_only_rebuilds_the_report_with_notes_and_does_not_dock(tmp_path):
     (tmp_path / "notes.md").write_text("hand-written note")
     assert redock_main(["--render-only", str(tmp_path), "--report", str(tmp_path / "r.md"), "--notes", str(tmp_path / "notes.md")]) == 0
     assert "hand-written note" in (tmp_path / "r.md").read_text()
+
+
+# ------------------------------------------------------------------ guards found in review
+def test_the_prepared_ligand_is_still_L_ornithine_at_every_ph():
+    """Heavy-atom RMSD cannot tell D from L at a single stereocentre, so an inversion in the obabel/SMILES round trip would
+    look like a clean pass. Guard it at the source."""
+    for ph in (1.0, 7.4, 12.0):
+        m = Chem.MolFromSmiles(prepare_ligand("ORN", ph).smiles)
+        assert Chem.FindMolChiralCenters(m, useLegacyImplementation=False) == [(4, "S")], ph
+
+
+@need_prepared
+def test_an_inequivalent_swap_is_penalised_unlike_the_carboxylate_swap():
+    """Pins the symmetry correction: only genuinely equivalent atoms may exchange for free."""
+    ref = crystal_reference(JOB / "ligand_crystal.pdb", ligand_template("ORN"))
+    names = [a.GetPDBResidueInfo().GetName().strip() for a in ref.GetAtoms()]
+    sw = Chem.Mol(ref)
+    c = sw.GetConformer()
+    pn, pe = c.GetAtomPosition(names.index("N")), c.GetAtomPosition(names.index("NE"))
+    c.SetAtomPosition(names.index("N"), pe)
+    c.SetAtomPosition(names.index("NE"), pn)
+    assert pose_rmsd(sw, ref) > 1.5
+
+
+def test_evaluate_seeds_records_how_many_poses_each_seed_returned():
+    per = [{"top1_rmsd": 1.0, "best_top5_rmsd": 1.0, "top1_score": -5.0, "n_poses": n} for n in (5, 12, 8)]
+    r = evaluate_seeds(per, 2.0)
+    assert r["n_poses_min"] == 5 and r["n_poses_max"] == 12
+
+
+def test_markdown_warns_when_an_engine_returned_fewer_poses_than_requested():
+    per = [{"seed": i, "top1_rmsd": 1.0, "top1_score": -5.0, "best_top5_rmsd": 0.9, "n_poses": 6 + i % 3} for i in range(1, 11)]
+    ev = evaluate_seeds(per, 2.0, min_seeds=10)
+    rep = {"ligand": {"smiles": "X", "ph": 7.4, "net_charge": 1, "n_atoms": 15, "n_heavy": 9, "torsdof": 7, "partial_charge_sum": 1.0},
+           "settings": {"exhaustiveness": 32, "num_modes": 20, "seeds": list(range(1, 11)), "acceptance": 2.0,
+                        "box_center_atom": "FAD:C4X", "box_size": [22, 22, 22], "protonation_ph": 7.4, "redock_nadp": "keep"},
+           "engines": {"unidock": "u"}, "results": [{"job": "J", "engine": "unidock", "wall_seconds": 1.0, "per_seed": per, **ev}]}
+    md = render_markdown(rep)
+    assert "fewer poses than the 20 requested" in md and "6-8" in md
+
+
+def test_pose_count_warning_also_works_on_a_report_written_before_the_counts_were_recorded():
+    per = [{"seed": i, "top1_rmsd": 1.0, "top1_score": -5.0, "best_top5_rmsd": 0.9, "n_poses": 7} for i in range(1, 11)]
+    ev = evaluate_seeds([{k: v for k, v in p.items() if k != "n_poses"} for p in per], 2.0, min_seeds=10)   # no counts in the summary
+    rep = {"ligand": {"smiles": "X", "ph": 7.4, "net_charge": 1, "n_atoms": 15, "n_heavy": 9, "torsdof": 7, "partial_charge_sum": 1.0},
+           "settings": {"exhaustiveness": 32, "num_modes": 20, "seeds": list(range(1, 11)), "acceptance": 2.0,
+                        "box_center_atom": "FAD:C4X", "box_size": [22, 22, 22], "protonation_ph": 7.4, "redock_nadp": "keep"},
+           "engines": {"unidock": "u"}, "results": [{"job": "J", "engine": "unidock", "wall_seconds": 1.0, "per_seed": per, **ev}]}
+    assert "fewer poses than the 20 requested" in render_markdown(rep)

@@ -210,6 +210,7 @@ def evaluate_seeds(per_seed: list, accept: float, min_seeds: int | None = None) 
     <= `accept`. The number of seeds within `accept`, the best-in-top-5 and the worst seed are reported beside it."""
     if min_seeds is not None and len(per_seed) < min_seeds:
         raise ValueError("Step 4 needs at least %d seeds, got %d" % (min_seeds, len(per_seed)))
+    npos = [s["n_poses"] for s in per_seed if "n_poses" in s]
     t1 = [s["top1_rmsd"] for s in per_seed]
     t5 = [s["best_top5_rmsd"] for s in per_seed]
     return {"n_seeds": len(per_seed), "accept": accept,
@@ -218,6 +219,7 @@ def evaluate_seeds(per_seed: list, accept: float, min_seeds: int | None = None) 
             "best_top5_median": statistics.median(t5), "best_top5_max": max(t5),
             "best_top5_n_within": sum(x <= accept for x in t5),
             "top1_score_median": statistics.median(s["top1_score"] for s in per_seed),
+            "n_poses_min": min(npos) if npos else None, "n_poses_max": max(npos) if npos else None,
             "passes": bool(statistics.median(t1) <= accept)}
 
 
@@ -290,6 +292,14 @@ def redock_all(cfg, prepared_root, out_root, engines=("vina", "unidock")) -> dic
     return report
 
 
+def _fill_pose_counts(r: dict) -> None:
+    """Older reports lack n_poses_min/max; the per-seed rows always carry n_poses."""
+    if r.get("n_poses_min") is None:
+        n = [x["n_poses"] for x in r.get("per_seed", []) if "n_poses" in x]
+        if n:
+            r["n_poses_min"], r["n_poses_max"] = min(n), max(n)
+
+
 def render_markdown(report: dict, notes: str = "") -> str:
     s, lg = report["settings"], report["ligand"]
     L = ["# Step 4 - redocking validation", "",
@@ -303,12 +313,25 @@ def render_markdown(report: dict, notes: str = "") -> str:
          "- RMSD: symmetry-corrected, heavy atoms, deposited pose as reference, no re-alignment. Registered pass rule "
          "(written before any run): the **median over seeds of the top-1 RMSD is <= %g A**; the count of seeds within %g A "
          "is reported beside it." % (s["acceptance"], s["acceptance"]), "",
-         "| receptor | engine | top-1 median | min-max (A) | seeds within | best-in-top-5 median | max | top-1 score median | verdict |",
-         "|---|---|---|---|---|---|---|---|---|"]
+         "| receptor | engine | top-1 median | min-max (A) | seeds within | best-in-top-5 median | max | top-1 score median | poses returned | verdict |",
+         "|---|---|---|---|---|---|---|---|---|---|"]
     for r in report["results"]:
-        L.append("| %s | %s | %.2f | %.2f-%.2f | %d/%d | %.2f | %.2f | %.2f | %s |" % (
+        _fill_pose_counts(r)
+        npos = "-" if r.get("n_poses_min") is None else "%d-%d" % (r["n_poses_min"], r["n_poses_max"])
+        L.append("| %s | %s | %.2f | %.2f-%.2f | %d/%d | %.2f | %.2f | %.2f | %s | %s |" % (
             r["job"], r["engine"], r["top1_median"], r["top1_min"], r["top1_max"], r["top1_n_within"], r["n_seeds"],
-            r["best_top5_median"], r["best_top5_max"], r["top1_score_median"], "**PASS**" if r["passes"] else "**FAIL**"))
+            r["best_top5_median"], r["best_top5_max"], r["top1_score_median"], npos, "**PASS**" if r["passes"] else "**FAIL**"))
+    counts = {}
+    for r in report["results"]:
+        if r.get("n_poses_min") is not None and r["n_poses_min"] < s["num_modes"]:
+            lo, hi = counts.get(r["engine"], (r["n_poses_min"], r["n_poses_max"]))
+            counts[r["engine"]] = (min(lo, r["n_poses_min"]), max(hi, r["n_poses_max"]))
+    short = [(eng, lo, hi) for eng, (lo, hi) in counts.items()]
+    for eng, lo, hi in short:
+        L.append("")
+        L.append("- **%s returned fewer poses than the %d requested** (%d-%d per seed, depending on receptor and seed). Its "
+                 "'best-in-top-5' is then over a shorter list (at 5 poses it is the best of all of them), so best-in-list "
+                 "numbers are not comparable with an engine that returned %d." % (eng, s["num_modes"], lo, hi, s["num_modes"]))
     L += ["", "## Per-seed top-1 RMSD (A) / score (kcal/mol)", ""]
     for r in report["results"]:
         L.append("- %s, %s: %s" % (r["job"], r["engine"], "; ".join(

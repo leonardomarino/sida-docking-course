@@ -396,7 +396,7 @@ def render_markdown(report: dict, notes: str = "") -> str:
               "| receptor | atoms per owning pocket rank | nearest-sphere distance, median / max (A) |", "|---|---|---|"]
         for j in withlig:
             g = j["ligand"]["fpocket"]
-            L.append("| %s | %s | %s / %s |" % (j["job"], ", ".join("rank %d: %d" % kv for kv in sorted(g["nearest_sphere_owner"].items())),
+            L.append("| %s | %s | %s / %s |" % (j["job"], ", ".join("rank %s: %d" % (k, v) for k, v in sorted(g["nearest_sphere_owner"].items(), key=lambda kv: int(kv[0]))),
                      _f(g["nearest_sphere_distance_median"]), _f(g["nearest_sphere_distance_max"])))
     rel = {k: v for j in report["jobs"] for k, v in j["fpocket_input"]["relabelled_atoms"].items()}
     unv = sorted({h for j in report["jobs"] for h in j["fpocket_input"]["hetero_unverified_in_fpocket"]})
@@ -415,14 +415,23 @@ def main(argv=None) -> int:
     import yaml
     from .config import load_config
     ap = argparse.ArgumentParser(description="Step 3: C4X box, carried box by superposition, fpocket cross-check.")
-    ap.add_argument("--config", required=True)
-    ap.add_argument("--prepared", required=True, help="Step 2 output root")
+    ap.add_argument("--config")
+    ap.add_argument("--prepared", help="Step 2 output root")
     ap.add_argument("--cache", default="structures_cache")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--out")
+    ap.add_argument("--render-only", metavar="OUT_DIR", help="rebuild --report from OUT_DIR/step3_report.json; no fpocket run")
     ap.add_argument("--report", help="write a markdown report here")
     ap.add_argument("--notes", help="hand-written notes file appended to the report verbatim")
     ap.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE")
     a = ap.parse_args(argv)
+    if a.render_only:
+        if not a.report:
+            ap.error("--render-only needs --report")
+        notes = Path(a.notes).read_text() if a.notes and Path(a.notes).exists() else ""
+        Path(a.report).write_text(render_markdown(json.loads((Path(a.render_only) / "step3_report.json").read_text()), notes))
+        return 0
+    if not (a.config and a.prepared and a.out):
+        ap.error("--config, --prepared and --out are required unless --render-only is given")
     over = {k: yaml.safe_load(v) for k, _, v in (s.partition("=") for s in a.set)}
     report = analyze_all(load_config(a.config, overrides=over), a.prepared, a.cache, a.out)
     if a.report:

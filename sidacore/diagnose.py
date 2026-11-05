@@ -207,13 +207,18 @@ def render_markdown(report: dict, displacements: dict | None = None, notes: str 
                 if r is None:
                     cells.append("-")
                     continue
-                cells.append("%.2f (%d/%d) / %.2f%s" % (r["top1_median"], r["top1_n_within"], r["n_seeds"], r["best_top5_median"],
-                                                      " **PASS**" if r["passes"] else ""))
                 e = r["extras"]
+                if e.get("crystal_fraction_inside", 1.0) < 1.0:
+                    cells.append("excluded (ligand does not fit)")
+                else:
+                    cells.append("%.2f (%d/%d) / %.2f%s" % (r["top1_median"], r["top1_n_within"], r["n_seeds"], r["best_top5_median"],
+                                                          " **PASS**" if r["passes"] else ""))
                 if "crystal_fraction_inside" in e:
                     notes_l.append("%s: %.0f%% of ligand in box" % (short[j], 100 * e["crystal_fraction_inside"]))
                 if e.get("site_states_changed"):
                     notes_l.append("%s: %s" % (short[j], ", ".join("%s %s" % kv for kv in e["site_states_changed"].items())))
+                if label.startswith("FAD charges zeroed") and j == jobs[0]:
+                    notes_l.append("control, not evidence: Vina has no electrostatic term and ignores partial charges")
                 if "ligand" in e and j == jobs[0]:
                     notes_l.append("net %+d, %d atoms" % (e["ligand"]["net_charge"], e["ligand"]["n_atoms"]))
             L.append("| %s | %s | %s |" % (label, " | ".join(cells), "; ".join(notes_l) or "-"))

@@ -54,3 +54,10 @@ def test_total_energy_view_is_reported_separately_and_compares_with_the_crystal_
     s = summarise_job(MANIFEST, ROSETTA, total=total)["vina"]["total"]
     assert s["crystal_better_than_engine_top1"] is True and s["engine_top1_minus_crystal"] == pytest.approx(12.0)
     assert s["rosetta_top1_pose"] == "v2" and s["rosetta_top1_rmsd"] == 1.2
+
+
+def test_markdown_shows_the_pose_as_docked_and_after_minimisation_and_never_a_rank_zero():
+    s = summarise_job(MANIFEST, ROSETTA, min_rmsd={"v2": 2.1})
+    s["vina"]["best_rmsd_pose_rosetta_rank"] = None            # the best-RMSD pose was excluded for having no contact
+    md = render_markdown({"J": s})
+    assert "after minimisation" in md and "1.20 / 2.10" in md and "[0]" not in md

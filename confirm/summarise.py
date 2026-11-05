@@ -70,7 +70,7 @@ def render_markdown(summaries: dict, notes: str = "") -> str:
          "else, partners separated and repacked. The number used is **dG_separated** (REU, lower is better).",
          "- Poses: every mode of seed 1 of each engine, plus the deposited ligand. This is a second, independent scoring "
          "function, not ground truth.", "",
-         "| receptor | engine | engine top-1 RMSD (A) | Rosetta top-1 RMSD (A) [its engine rank] | best RMSD in the list (A) [its Rosetta rank] "
+         "| receptor | engine | engine top-1 RMSD (A) | Rosetta top-1 RMSD (A), as docked / after minimisation [its engine rank] | best RMSD in the list (A) [its Rosetta rank] "
          "| crystal dG | engine top-1 dG | crystal better than engine top-1 | Spearman, engine score vs dG |",
          "|---|---|---|---|---|---|---|---|---|"]
     for job, per in summaries.items():
@@ -78,9 +78,11 @@ def render_markdown(summaries: dict, notes: str = "") -> str:
             sp = "-" if s["spearman_score_vs_dG"] is None else "%.2f" % s["spearman_score_vs_dG"]
             if s["n_no_contact"]:
                 sp += " (%d no-contact excluded)" % s["n_no_contact"]
-            L.append("| %s | %s | %.2f | %.2f [%d] | %.2f [%d] | %.1f | %.1f | %s | %s |" % (
-                job, eng, s["engine_top1_rmsd"], s["rosetta_top1_rmsd"], s["rosetta_top1_rank_in_engine"], s["best_rmsd"],
-                s["best_rmsd_pose_rosetta_rank"] or 0, s["crystal_dG"], s["engine_top1_dG"],
+            mn = "-" if s.get("rosetta_top1_min_rmsd") is None else "%.2f" % s["rosetta_top1_min_rmsd"]
+            br = "-" if s["best_rmsd_pose_rosetta_rank"] is None else "%d" % s["best_rmsd_pose_rosetta_rank"]
+            L.append("| %s | %s | %.2f | %.2f / %s [%d] | %.2f [%s] | %.1f | %.1f | %s | %s |" % (
+                job, eng, s["engine_top1_rmsd"], s["rosetta_top1_rmsd"], mn, s["rosetta_top1_rank_in_engine"], s["best_rmsd"],
+                br, s["crystal_dG"], s["engine_top1_dG"],
                 "yes" if s["crystal_better_than_engine_top1"] else "**no**", sp))
     if any("total" in s for per in summaries.values() for s in per.values()):
         L += ["", "## Added after seeing the dG results: total complex energy", "",

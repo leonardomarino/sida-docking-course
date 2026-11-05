@@ -155,3 +155,26 @@ def test_markdown_has_one_section_per_rung_one_column_per_receptor_and_flags_a_p
     md = render_markdown(rep, notes="hello")
     assert "## Rung 1 ligand protonation" in md and "| variant | A | B | notes |" in md
     assert "**PASS**" in md and md.rstrip().endswith("hello")
+
+
+def _variant(job, label, frac=None, passes=False):
+    per = [{"seed": i, "top1_rmsd": 4.8, "top1_score": -5.0, "best_top5_rmsd": 4.8, "n_poses": 20} for i in range(1, 11)]
+    from sidacore.redock import evaluate_seeds
+    ev = evaluate_seeds(per, 2.0, min_seeds=10)
+    extras = {} if frac is None else {"crystal_fraction_inside": frac}
+    return {"rung": "2 box", "label": label, "job": job, "engine": "vina", "extras": extras, "wall_seconds": 1.0, "per_seed": per, **ev}
+
+
+_SETTINGS = {"engine": "vina", "exhaustiveness": 32, "num_modes": 20, "seeds": list(range(1, 11)), "acceptance": 2.0, "protonation_ph": 7.4}
+
+
+def test_a_box_that_cannot_contain_the_deposited_ligand_is_excluded_not_reported_as_a_failure():
+    md = render_markdown({"settings": _SETTINGS, "variants": [_variant("A_nadp-keep", "size 18 A", frac=0.56)]})
+    assert "excluded" in md and "56%" in md and "4.80 (0/10)" not in md
+
+
+def test_the_charge_blind_control_is_labelled_as_a_control():
+    v = _variant("A_nadp-keep", "FAD charges zeroed (diagnostic)")
+    v["rung"] = "3 FAD treatment"
+    md = render_markdown({"settings": _SETTINGS, "variants": [v]})
+    assert "control" in md and "no electrostatic" in md

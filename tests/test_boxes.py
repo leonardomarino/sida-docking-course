@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation
 
-from sidacore.boxes import (Pocket, analyze_all, assess_pockets, box_overlap_fraction, heavy_atom_pdb, ligand_pocket_contact,
+from sidacore.boxes import (Pocket, analyze_all, assess_pockets, box_overlap_fraction, heavy_atom_pdb, ligand_pocket_contact, main as boxes_main,
                             ligand_vs_box, parse_fpocket_info, pocket_lining, protein_chain, read_vina_box, render_markdown, run_fpocket,
                             transfer_site, write_vina_box)
 from sidacore.config import load_config
@@ -265,3 +265,16 @@ def test_a_step2_box_that_disagrees_with_the_recomputed_c4x_is_refused(cfg, tmp_
     box.write_text(box.read_text().replace("center_x = ", "center_x = 9"))
     with pytest.raises(RuntimeError, match="disagrees with the C4X"):
         analyze_all(cfg, root, CACHE, tmp_path / "out")
+
+
+def test_render_only_rebuilds_the_step3_report_from_the_retained_json_without_rerunning_fpocket(tmp_path):
+    import json
+    src = ROOT / "boxes" / "step3_report.json"
+    if not src.exists():
+        pytest.skip("run `python -m sidacore.boxes` first")
+    out = tmp_path / "boxes"
+    out.mkdir()
+    (out / "step3_report.json").write_text(src.read_text())
+    from sidacore.boxes import main as bmain
+    assert bmain(["--render-only", str(out), "--report", str(tmp_path / "r.md")]) == 0
+    assert "## Boxes" in (tmp_path / "r.md").read_text()

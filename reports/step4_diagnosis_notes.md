@@ -32,10 +32,20 @@ receptors re-run.
 
 **Two null results that are expected, not informative.** Zeroing FAD's partial charges changes nothing (identical to the
 baseline in every receptor), as it should: Vina's scoring function has no electrostatic term, so charges are not used. Receptor
-pH 6.0 and 8.5 changed no site residue state (in 4B63: His91 HID, Lys100 and Arg144 are the same), so they could not change the result;
+pH 6.0 and 8.5 changed none of the three residues in the Step 2 site table (His91, Lys100, Arg144 in 4B63), but that table does not list Lys107 (and Asp288 in 6X0J), which contact the deposited ornithine and lie 9.4-11.7 A from C4X, outside its 8 A radius, so their states were not examined;
 PROPKA's histidine pKa is unreliable (see the Step 2 note), and other His91 tautomers were not tried.
 
-**Not tested.** Explicit waters or ions in the site; Lys100 (modelled, not observed, in 4B63 and 6X0J) in alternative
+**Not tested.** All crystal waters are stripped (262 in 4B63, the nearest 3.2 A from C4X) in a site that buries a +1 charge, and waters were never tried; Lys107 and Asp288 protonation (see above); Lys100 (modelled, not observed, in 4B63 and 6X0J) in alternative
 positions; flexible side chains; other protonation states of the receptor beyond the pH values above; a different scoring
-function that includes electrostatics (the Rosetta check of this step was inconclusive); and the large 4B63 cavity (3,325 A^3
-against 2,100-2,400 A^3 in 6X0J) as a cause.
+function that includes electrostatics (the Rosetta check of this step was inconclusive); and the large 4B63 cavity (3,161 A^3 against 2,059-2,414 A^3 in 6X0J, fpocket volumes of the run on disk) as a cause.
+
+**What the ladder establishes, stated once.** The failure of 6X0J chain C is resolved by removing either cofactor or by a box of 26-30 A (and
+flips with a 0.2 A shift of the box), consistent with a near-tie between two poses. The failure of 4B63, the primary benchmark, survives
+every one of the four factors the spec prescribes: no variant brings its top-1 below 4.73 A. The 4B63 and 6X0J ligand positions are the
+same (superposed, the deposited ornithines lie 0.34 A apart), so the difference lies in the prepared receptor or box, not in the biology.
+
+**Limits of the ladder.** It runs Vina only; on chain C the engines did not agree at baseline (Uni-Dock found the near-native pose in
+3/10 seeds, Vina in 0/10). The 18 A box cell for 4B63 is excluded in the table: that box holds 56% of the deposited ligand, so the
+near-native pose cannot be reached. The 'FAD charges zeroed' row is a control, not evidence: Vina ignores partial charges, so it is
+identical to the baseline by construction. Rung 1 used hand-written protonation states, not what the pipeline's pH model would give at
+other pH values.

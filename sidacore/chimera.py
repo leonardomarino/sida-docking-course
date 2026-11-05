@@ -38,6 +38,26 @@ VARIANTS = [
 ]
 
 
+REVERSE_VARIANTS = [
+    ("round trip, nothing swapped (baseline)", "A", []),
+    ("4B63 Gln102", "A", [102]),
+    ("4B63 Asp288", "A", [288]),
+    ("4B63 Gln102 + Asp288", "A", [102, 288]),
+    ("all four that differed: 4B63 Gln102, Arg144, Asp288, Arg328", "A", [102, 144, 288, 328]),
+    ("control: four unflagged contacts from 4B63 (Lys107, Asn293, Asn323, Ser469)", "A", [107, 293, 323, 469]),
+]
+REVERSE_TARGETS = (("6X0J", "A"), ("6X0J", "B"), ("6X0J", "D"))       # the chains that pass the baseline redock
+
+
+def job_for(cfg, prepared_root, target):
+    """The prepared benchmark job of one structure AND chain (a name prefix is not enough: 6X0J has four chains)."""
+    want = "%s_%s_" % target
+    for j in benchmark_jobs(cfg, Path(prepared_root)):
+        if j.name.startswith(want):
+            return j
+    raise ValueError("no prepared benchmark job for %s chain %s" % target)
+
+
 def swap_sidechains(target, donor, res_ids):
     """(new target atoms, log): a rotamer transplant. For each residue the donor residue is superimposed on the TARGET residue's own backbone atoms (N, CA, C) and its
     side-chain atoms replace the target's, so the donor's side-chain torsions sit on the target's backbone and the CA-CB junction keeps the target's geometry. (Copying the donor's
@@ -109,13 +129,13 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
-def run_chimeras(cfg, prepared_root, out_root, cache_dir="structures_cache", target=("4B63", "A"), variants=VARIANTS, only=None, checkpoint=None) -> dict:
+def run_chimeras(cfg, prepared_root, out_root, cache_dir="structures_cache", target=("4B63", "A"), variants=VARIANTS, only=None, checkpoint=None, donor_pid="6X0J") -> dict:
     if len(cfg.seeds) < MIN_SEEDS:
         raise ValueError("Step 4 needs at least %d seeds, config has %d" % (MIN_SEEDS, len(cfg.seeds)))
     out_root = Path(out_root)
     out_root.mkdir(parents=True, exist_ok=True)
     write_resolved(cfg, out_root)
-    base_job = next(j for j in benchmark_jobs(cfg, Path(prepared_root)) if j.name.startswith(target[0]))
+    base_job = job_for(cfg, prepared_root, target)
     ref = crystal_reference(base_job / "ligand_crystal.pdb", ligand_template(cfg.ligand_resname))
     lp = prepare_ligand(cfg.ligand_resname, cfg.protonation_ph)
     base_states = _site_states(base_job / "protonation_states.csv")
@@ -124,7 +144,7 @@ def run_chimeras(cfg, prepared_root, out_root, cache_dir="structures_cache", tar
         if only and label not in only:
             continue
         t0, slug = time.time(), _slug(label)
-        built = build_chimera_cif(cache_dir, out_root / "cif" / (slug + ".cif"), target=target, donor=("6X0J", donor_chain), res_ids=res_ids)
+        built = build_chimera_cif(cache_dir, out_root / "cif" / (slug + ".cif"), target=target, donor=(donor_pid, donor_chain), res_ids=res_ids)
         prep_dir = out_root / "receptors" / slug
         try:
             if not prep_dir.exists():
@@ -144,31 +164,59 @@ def run_chimeras(cfg, prepared_root, out_root, cache_dir="structures_cache", tar
         if checkpoint:
             Path(checkpoint).write_text(json.dumps({"settings": {"partial": True}, "variants": results}, indent=1))
     return {"settings": {"engine": ENGINE, "exhaustiveness": cfg.exhaustiveness, "num_modes": cfg.num_modes, "seeds": list(cfg.seeds),
-                         "acceptance": cfg.redock_rmsd_acceptance, "protonation_ph": cfg.protonation_ph, "target": "%s:%s" % target}, "variants": results}
+                         "acceptance": cfg.redock_rmsd_acceptance, "protonation_ph": cfg.protonation_ph, "target": "%s:%s" % target,
+                         "direction": "forward" if target[0] == "4B63" else "reverse", "donor": donor_pid}, "variants": results}
+
+
+def run_reverse(cfg, prepared_root, out_root, cache_dir="structures_cache", targets=REVERSE_TARGETS, donor=("4B63", "A"), checkpoint=None) -> dict:
+    """The reverse chimera: each passing 6X0J chain receives the donor's (4B63's) side-chain conformations. Same variants, rule and controls as the forward run."""
+    out_root, merged, settings = Path(out_root), [], None
+    for tgt in targets:
+        rep = run_chimeras(cfg, prepared_root, out_root / ("%s_%s" % tgt), cache_dir=cache_dir, target=tgt, variants=REVERSE_VARIANTS, donor_pid=donor[0])
+        settings = rep["settings"]
+        merged += [{"target": "%s:%s" % tgt, **v} for v in rep["variants"]]
+        if checkpoint:
+            Path(checkpoint).write_text(json.dumps({"settings": {"partial": True}, "variants": merged}, indent=1))
+    settings = {**settings, "target": ", ".join("%s:%s" % t for t in targets), "direction": "reverse", "donor": "%s:%s" % donor}
+    return {"settings": settings, "variants": merged}
 
 
 def render_markdown(report: dict, notes: str = "") -> str:
     s = report["settings"]
-    L = ["# Step 4: chimeric receptors - do Gln102 and Asp288 explain the 4B63 failure?", "",
-         "Generated by `python -m sidacore.chimera`; numbers only. Target %s; donor residues come from the named 6X0J chain as a rotamer transplant: each donor residue is superimposed on the 4B63 residue's own N, CA and C and only its side-chain atoms are copied." % s["target"], "",
-         "**Design registered before the run.** (1) The round trip with nothing swapped is the baseline: it goes through the same write, read and prepare path and must reproduce the original 4B63 "
-         "result, otherwise the method itself changes the answer. (2) The control swaps four residues that differ from 6X0J by only 0.1 to 0.4 A: if it changes the result as much as the real swap, "
+    reverse = s.get("direction") == "reverse"
+    multi = any("target" in v for v in report["variants"])
+    if reverse:
+        title = "# Step 4: reverse chimeras - are 4B63's Gln102 and Asp288 necessary for a 6X0J chain to pass?"
+        what = ("Targets %s; each receives the %s side-chain conformations of the named residues as a rotamer transplant (the donor residue is superimposed on the target residue's own N, CA and C "
+                "and only its side-chain atoms are copied)." % (s["target"], s.get("donor", "4B63")))
+        reading = ("(5) Reading, fixed in advance: a swap that makes a passing chain fail while the control does not means those residues are necessary for the pass; if every chain still "
+                   "passes, they are not. The baseline of each chain must reproduce its original pass.")
+    else:
+        title = "# Step 4: chimeric receptors - do Gln102 and Asp288 explain the 4B63 failure?"
+        what = ("Target %s; donor residues come from the named 6X0J chain as a rotamer transplant: each donor residue is superimposed on the 4B63 residue's own N, CA and C and only its "
+                "side-chain atoms are copied." % s["target"])
+        reading = ""
+    L = [title, "", "Generated by `python -m sidacore.chimera`; numbers only. " + what, "",
+         "**Design registered before the run.** (1) The round trip with nothing swapped is the baseline: it goes through the same write, read and prepare path and must reproduce the original "
+         "result, otherwise the method itself changes the answer. (2) The control swaps four residues that differ by only 0.1 to 0.5 A: if it changes the result as much as the real swap, "
          "docking is simply sensitive to sub-angstrom changes and the real swap means little. (3) Same pass rule as Step 4: median top-1 RMSD over %d seeds <= %g A (%s, exhaustiveness %d, %d modes). "
-         "(4) A variant that passes is a finding, never a fix; a chimeric receptor is not adopted as the benchmark." % (len(s["seeds"]), s["acceptance"], s["engine"], s["exhaustiveness"], s["num_modes"]), "",
-         "| Variant | residues swapped | closest new contact (A) | top-1 median RMSD (within / seeds) | best-in-top-5 median | verdict | protonation changes in the site |", "|---|---|---|---|---|---|---|"]
+         "(4) A variant that passes is a finding, never a fix; a chimeric receptor is not adopted as the benchmark. %s" % (
+             len(s["seeds"]), s["acceptance"], s["engine"], s["exhaustiveness"], s["num_modes"], reading), "",
+         ("| Target " if multi else "") + "| Variant | residues swapped | closest new contact (A) | top-1 median RMSD (within / seeds) | best-in-top-5 median | verdict | protonation changes in the site |",
+         ("|---" if multi else "") + "|---|---|---|---|---|---|---|"]
     for v in report["variants"]:
         c = v["closest_contact"]
-        if "prepare_error" in v:
-            why = "; ".join([l for l in v["prepare_error"].splitlines() if "excess inter-residue" in l] or v["prepare_error"].splitlines()[:1])
-            L.append("| %s | %s | %s | not prepared: %s | - | - | - |" % (v["label"], ", ".join("%s%d" % (x["res_name"], x["res_id"]) for x in v["swapped"]),
-                     "%s%d %s - %s%d %s: %.2f" % (next(x["res_name"] for x in v["swapped"] if x["res_id"] == c["res_id"]), c["res_id"], c["atom"], c["other_res_name"],
-                                                   c["other_res_id"], c["other_atom"], c["distance"]) if c else "none under 2.2", why))
-            continue
+        head = ("| %s " % v["target"]) if multi else ""
+        swapped = ", ".join("%s%d" % (x["res_name"], x["res_id"]) for x in v["swapped"]) or "none"
         contact = "none under 2.2" if not c else "%s%d %s - %s%d %s: %.2f" % (next(x["res_name"] for x in v["swapped"] if x["res_id"] == c["res_id"]), c["res_id"], c["atom"],
                                                                            c["other_res_name"], c["other_res_id"], c["other_atom"], c["distance"])
-        L.append("| %s | %s | %s | %.2f (%d/%d) | %.2f | %s | %s |" % (
-            v["label"], ", ".join("%s%d" % (x["res_name"], x["res_id"]) for x in v["swapped"]) or "none", contact, v["top1_median"], v["top1_n_within"], v["n_seeds"],
-            v["best_top5_median"], "**PASS**" if v["passes"] else "fail", "; ".join("%s: %s" % kv for kv in v["site_states_changed"].items()) or "none"))
+        if "prepare_error" in v:
+            why = "; ".join([l for l in v["prepare_error"].splitlines() if "excess inter-residue" in l] or v["prepare_error"].splitlines()[:1])
+            L.append("%s| %s | %s | %s | not prepared: %s | - | - | - |" % (head, v["label"], swapped, contact, why))
+            continue
+        L.append("%s| %s | %s | %s | %.2f (%d/%d) | %.2f | %s | %s |" % (
+            head, v["label"], swapped, contact, v["top1_median"], v["top1_n_within"], v["n_seeds"], v["best_top5_median"], "**PASS**" if v["passes"] else "fail",
+            "; ".join("%s: %s" % kv for kv in v["site_states_changed"].items()) or "none"))
     return "\n".join(L) + "\n" + ("\n" + notes if notes else "")
 
 
@@ -181,22 +229,26 @@ def main(argv=None) -> int:
     ap.add_argument("--cache", default="structures_cache")
     ap.add_argument("--report")
     ap.add_argument("--notes")
+    ap.add_argument("--direction", choices=("forward", "reverse"), default="forward", help="forward: 6X0J side chains into 4B63; reverse: 4B63 side chains into the passing 6X0J chains")
     ap.add_argument("--render-only", action="store_true", help="rebuild --report from OUT/step4_chimera.json; no docking")
     a = ap.parse_args(argv)
     cfg, out = load_config(a.config), Path(a.out)
     if a.render_only:
         report = json.loads((out / "step4_chimera.json").read_text())
     else:
-        report = run_chimeras(cfg, a.prepared, out, cache_dir=a.cache, checkpoint=out / "step4_chimera.partial.json")
+        part = out / "step4_chimera.partial.json"
+        out.mkdir(parents=True, exist_ok=True)
+        report = (run_reverse(cfg, a.prepared, out, cache_dir=a.cache, checkpoint=part) if a.direction == "reverse"
+                  else run_chimeras(cfg, a.prepared, out, cache_dir=a.cache, checkpoint=part))
         (out / "step4_chimera.json").write_text(json.dumps(report, indent=1))
     if a.report:
         notes = Path(a.notes).read_text() if a.notes and Path(a.notes).exists() else ""
         Path(a.report).write_text(render_markdown(report, notes))
     for v in report["variants"]:
         if "prepare_error" in v:
-            print("%-66s NOT PREPARED" % v["label"])
+            print("%-8s %-72s NOT PREPARED" % (v.get("target", ""), v["label"][:72]))
             continue
-        print("%-66s top-1 %.2f (%d/%d) best5 %.2f %s" % (v["label"], v["top1_median"], v["top1_n_within"], v["n_seeds"], v["best_top5_median"], "PASS" if v["passes"] else "fail"))
+        print("%-8s %-72s top-1 %.2f (%d/%d) best5 %.2f %s" % (v.get("target", ""), v["label"][:72], v["top1_median"], v["top1_n_within"], v["n_seeds"], v["best_top5_median"], "PASS" if v["passes"] else "fail"))
     return 0
 
 

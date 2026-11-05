@@ -111,3 +111,37 @@ def test_a_variant_that_cannot_be_prepared_is_recorded_not_dropped_and_the_run_c
     assert all("excess inter-residue" in v["prepare_error"] and "top1_median" not in v for v in rep["variants"])
     md = CH.render_markdown(rep)
     assert "not prepared" in md and "two bad ones" in md
+
+
+@pytest.mark.skipif(not (CACHE / "4B63.cif").exists() or not (CACHE.parent / "prepared").exists(), reason="inputs not present")
+def test_the_job_for_a_target_is_chosen_by_structure_and_chain_not_by_prefix():
+    from sidacore.config import load_config
+    cfg = load_config(CACHE.parent / "config" / "default.yaml")
+    assert CH.job_for(cfg, CACHE.parent / "prepared", ("6X0J", "C")).name.startswith("6X0J_C_")
+    assert CH.job_for(cfg, CACHE.parent / "prepared", ("6X0J", "D")).name.startswith("6X0J_D_")
+    with pytest.raises(ValueError):
+        CH.job_for(cfg, CACHE.parent / "prepared", ("6X0J", "Z"))
+
+
+@pytest.mark.skipif(not (CACHE / "4B63.cif").exists(), reason="structure cache not present")
+def test_the_reverse_direction_gives_a_6x0j_chain_the_4b63_residue_and_nothing_else(tmp_path):
+    from sidacore.prep import read_structure
+    CH.build_chimera_cif(CACHE, tmp_path / "r.cif", target=("6X0J", "B"), donor=("4B63", "A"), res_ids=[102])
+    base, _ = read_structure(CACHE / "6X0J.cif", "highest-occupancy")
+    q, _ = read_structure(tmp_path / "r.cif", "highest-occupancy")
+    moved = np.linalg.norm(q.coord - base.coord, axis=1) > 1e-3
+    assert set(zip(q.chain_id[moved], q.res_id[moved])) == {("B", 102)}                  # one residue of one chain
+    assert not np.isin(q.atom_name[moved], ["N", "CA", "C", "O"]).any()
+    ca_cb = lambda a: np.linalg.norm(a[(a.chain_id == "B") & (a.res_id == 102) & (a.atom_name == "CB")].coord[0] - a[(a.chain_id == "B") & (a.res_id == 102) & (a.atom_name == "CA")].coord[0])
+    assert abs(ca_cb(q) - ca_cb(base)) < 0.05
+
+
+def test_a_multi_target_report_names_the_target_and_the_direction():
+    rep = {"settings": {"engine": "vina", "exhaustiveness": 32, "num_modes": 20, "seeds": list(range(1, 11)), "acceptance": 2.0, "protonation_ph": 7.4,
+                        "target": "6X0J:A, 6X0J:B", "direction": "reverse", "donor": "4B63:A"},
+           "variants": [{"target": "6X0J:A", "label": "4B63 Gln102", "donor_chain": "A", "res_ids": [102], "swapped": [{"res_id": 102, "res_name": "GLN"}], "closest_contact": None,
+                         "site_states_changed": {}, "top1_median": 1.0, "top1_n_within": 10, "n_seeds": 10, "best_top5_median": 1.0, "passes": True}]}
+    md = CH.render_markdown(rep)
+    assert "reverse" in md.lower()
+    assert "| Target |" in md                                                           # a Target column heads the table
+    assert "| 6X0J:A | 4B63 Gln102 |" in md                                              # and the row starts with the target

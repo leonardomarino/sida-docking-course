@@ -2,6 +2,7 @@
 
 **Structure-based screening of ligands against the L-ornithine site of *Aspergillus fumigatus* SidA — with a built-in check on whether the docking can be trusted.**
 
+[![CI](https://github.com/leonardomarino/sida-docking-course/actions/workflows/ci.yml/badge.svg)](https://github.com/leonardomarino/sida-docking-course/actions/workflows/ci.yml)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 ![Platforms](https://img.shields.io/badge/platform-linux--64%20%7C%20osx--arm64-lightgrey)
 ![Docking](https://img.shields.io/badge/docking-AutoDock%20Vina%201.2.7-informational)
@@ -290,6 +291,11 @@ Linux-only `sida-docking` environment, which is **not** needed to use the notebo
 pytest -m "not slow" tests/test_screen.py                            # seconds: clash arithmetic, ligand and target handling
 pytest -m slow tests/test_screen.py tests/test_screen_notebook.py    # runs PDB2PQR, Meeko, Vina and the whole notebook (minutes)
 ```
+
+**Continuous integration.** [GitHub Actions](.github/workflows/ci.yml) repeats the installation steps above on a clean Linux and a clean macOS machine for every push
+and once a week (so a change in an upstream package is noticed), then runs the quick and slow tests, including the whole notebook. `tests/test_install.py` checks that the
+installed versions match `notebooks/environment.yml`, that every external program starts, and that the package is importable from outside the repository;
+`tests/test_docs.py` keeps this README consistent with the files it describes. In CI a skipped test counts as a failure.
 
 Other test files in `tests/` belong to the validation steps and need the `sida-docking` environment (they use `fpocket`, which `sida-screen` does not contain).
 

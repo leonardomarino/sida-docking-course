@@ -1,0 +1,83 @@
+name: CI
+
+# Follows the README installation steps on a clean machine, then runs the tests, so a README that stops working fails the build.
+# The weekly run catches breakage from upstream packages (conda-forge, PyPI) even when nobody has pushed.
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SIDA_CI: "1"                         # tests/conftest.py: a skipped test fails the build (except the one legitimate skip)
+
+jobs:
+  install-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Linux x86-64",             os: ubuntu-latest,   experimental: false }
+          - { name: "macOS Apple silicon",      os: macos-latest,    experimental: false }
+          - { name: "macOS Intel (experimental)", os: macos-15-intel, experimental: true }
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Step 1 of the README: conda. Miniforge uses conda-forge only, like notebooks/environment.yml.
+      - name: Install conda (Miniforge)
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          auto-activate-base: false
+
+      - name: Step 3 - create the environment
+        run: |
+          conda --version
+          conda env create -f notebooks/environment.yml
+
+      - name: Step 5 - install the project code
+        run: |
+          conda activate sida-screen
+          pip install -e .
+
+      - name: Step 6 - check the installation
+        run: |
+          conda activate sida-screen
+          python -c "import sidacore.screen as S; t = S.check_tools(); print(t); assert all(t.values()), t"
+
+      # The structures are downloaded with the project's own code (the same function the notebook uses). RCSB is retried.
+      - name: Download the test structures from RCSB
+        run: |
+          conda activate sida-screen
+          for attempt in 1 2 3; do
+            python -c "from sidacore.prep import fetch_structure; [fetch_structure(i, 'structures_cache') for i in ('4B63', '6X0H', '6X0J')]" && break
+            echo "download failed (attempt $attempt)"; sleep 20
+          done
+          ls -l structures_cache
+
+      - name: Quick tests
+        run: |
+          conda activate sida-screen
+          pytest -m "not slow" tests/test_screen.py tests/test_install.py tests/test_docs.py -q -rs
+
+      - name: Slow tests (PDB2PQR, Meeko, Vina, the whole notebook)
+        run: |
+          conda activate sida-screen
+          pytest -m slow tests/test_screen.py tests/test_install.py tests/test_screen_notebook.py -q -rs

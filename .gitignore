@@ -16,3 +16,5 @@ chimera_reverse/
 rosetta_dock/
 rescoring/
 notebooks/screen_runs/
+.DS_Store
+reports/sobrado_questions.*

@@ -69,7 +69,7 @@ The notebook is written as a **laboratory notebook entry**: objective, backgroun
 If you already have `git` and `conda`:
 
 ```bash
-git clone -b feat/sida-docking-prototype https://github.com/leonardomarino/sida-docking-course.git ~/GitHub/sida-docking-course
+git clone https://github.com/leonardomarino/sida-docking-course.git ~/GitHub/sida-docking-course
 cd ~/GitHub/sida-docking-course
 conda env create -f notebooks/environment.yml
 conda activate sida-screen
@@ -128,11 +128,11 @@ conda --version
 ### Step 2. Get the code
 
 ```bash
-git clone -b feat/sida-docking-prototype https://github.com/leonardomarino/sida-docking-course.git ~/GitHub/sida-docking-course
+git clone https://github.com/leonardomarino/sida-docking-course.git ~/GitHub/sida-docking-course
 cd ~/GitHub/sida-docking-course
 ```
 
-`-b feat/sida-docking-prototype` selects the branch that holds the notebook. Already cloned? Run `git checkout feat/sida-docking-prototype && git pull` inside the folder.
+Already cloned? Run `git pull` inside the folder.
 
 ### Step 3. Create the environment (once)
 

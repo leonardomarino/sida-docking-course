@@ -38,15 +38,13 @@ brew install --cask miniconda        # the route the tested install used
 ### 2. Get the code
 
 ```bash
-git clone git@github.com:leonardomarino/sida-docking-course.git ~/GitHub/sida-docking-course
+git clone https://github.com/leonardomarino/sida-docking-course.git ~/GitHub/sida-docking-course
 cd ~/GitHub/sida-docking-course
-git checkout feat/sida-docking-prototype
 ```
 
-The repository is **private**: you need a GitHub account that has been added to it as a collaborator, and either an SSH key registered on that account
-(as above) or the HTTPS address `https://github.com/leonardomarino/sida-docking-course.git` with `gh auth login` / a personal access token.
+The repository is public: no GitHub account or SSH key is needed.
 
-(Already cloned? `git checkout feat/sida-docking-prototype && git pull`.)
+(Already cloned? `git pull`.)
 
 ### 3. Create the environment (once, a few minutes, about 250 MB)
 

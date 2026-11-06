@@ -92,6 +92,7 @@ You do **not** need a GPU, Docker, administrator rights, or any other program.
 | | |
 |---|---|
 | **Operating system** | Apple-silicon Mac (tested) · Linux x86-64 (tested) · Intel Mac (packages resolve; not run) · Windows (not tested; use WSL 2 and follow the Linux steps) |
+| **On a Mac, also** | the Xcode Command Line Tools and Homebrew (free; [Step 1](#step-1-install-git-and-conda) shows how) |
 | **Disk space** | about 250 MB for the environment, plus the structure downloads |
 | **Internet** | needed for installation and for the first run (structures are downloaded from RCSB) |
 | **Time** | installation: a few minutes. First notebook run: ~75 s on a 24-core Linux workstation, ~8 min on an Apple-silicon laptop |
@@ -100,6 +101,14 @@ You do **not** need a GPU, Docker, administrator rights, or any other program.
 The commands below are typed into a terminal (macOS: *Terminal* in Applications → Utilities).
 
 ### Step 1. Install git and conda
+
+> **macOS: you need two free tools first.** Many Macs do not have them yet.
+>
+> 1. **Xcode Command Line Tools**: Apple's developer tools. They provide `git`, and Homebrew needs them. Install them with
+>    `xcode-select --install` and click **Install** in the window that opens (a few minutes). Check with `xcode-select -p`, which prints a folder path once they are installed.
+> 2. **Homebrew**: the Mac package manager used below to install conda. Open [brew.sh](https://brew.sh), copy the one-line command from the top of the page into Terminal and run it
+>    (it also offers to install the Command Line Tools if they are missing). When it finishes it prints a **Next steps** section: run those lines, then **open a new Terminal window**.
+>    Check with `brew --version`.
 
 Check what you already have:
 

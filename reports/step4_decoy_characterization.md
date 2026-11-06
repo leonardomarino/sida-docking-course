@@ -26,7 +26,7 @@ Hypothesis (external review): stripping the extra heteroatoms of 4B63 left a vac
 - The decoy carboxylate is 9.8 and 11.3 Å from Arg144 CZ and Arg328 CZ and 13.3-14.2 Å from the sulfate (nearest O 13.3 Å). It is not in an anion site.
 - **One thing survives.** Arg328 CZ is 4.4 Å from the sulfate S in 4B63 (Arg144 CZ: 13.9 Å); 6X0J has no sulfate. This is a candidate explanation of why Arg328's guanidinium differs between the structures (3.5-3.7 Å, Step 4 site
   comparison), i.e. one of the four flagged site residues may reflect an additive rather than biology. It is a distance, not a demonstrated cause, and it is 8.8 Å from the ornithine, so it does not bear on the decoy.
-  Whether the sulfate is real (B 55-60 Å^2, occupancy 1.0) is a question for Sobrado (`reports/sobrado_questions.md`).
+  Whether the sulfate is real (B 55-60 Å^2, occupancy 1.0) is a question for Sobrado.
 - The review also attributed the larger fpocket cavity of 4B63 to the stripped heteroatoms. Not tested; given the distances above it is unlikely for the glycerols and unproven for the sulfate.
 
 ## 3. Crystal packing: not the cause (negative)

@@ -18,7 +18,7 @@ Everything runs in one conda environment (`sida-screen`) that holds AutoDock Vin
 You do not need a GPU, Docker, or any other program.
 
 **Tested:** an Apple-silicon Mac, conda from Homebrew's `miniconda` cask, 2026-11-05: the environment installed, all four external programs were found,
-and the notebook ran end to end with the same results as the Linux reference (see step 7). **Intel Macs:** the same packages resolve (checked with a dry-run solve only); nobody has run it there.
+and the notebook ran end to end with the same results as the Linux reference (see step 7).
 
 ### 1. Prerequisites: git and conda
 

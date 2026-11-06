@@ -91,7 +91,7 @@ You do **not** need a GPU, Docker, administrator rights, or any other program.
 
 | | |
 |---|---|
-| **Operating system** | Apple-silicon Mac (tested) · Linux x86-64 (tested) · Intel Mac (packages resolve; not run) · Windows (not tested; use WSL 2 and follow the Linux steps) |
+| **Operating system** | Apple-silicon Mac (tested) · Linux x86-64 (tested) · Windows (not tested; use WSL 2 and follow the Linux steps) |
 | **On a Mac, also** | the Xcode Command Line Tools and Homebrew (free; [Step 1](#step-1-install-git-and-conda) shows how) |
 | **Disk space** | about 250 MB for the environment, plus the structure downloads |
 | **Internet** | needed for installation and for the first run (structures are downloaded from RCSB) |

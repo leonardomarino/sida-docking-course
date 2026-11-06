@@ -25,14 +25,12 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
-    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: "Linux x86-64",             os: ubuntu-latest,   experimental: false }
-          - { name: "macOS Apple silicon",      os: macos-latest,    experimental: false }
-          - { name: "macOS Intel (experimental)", os: macos-15-intel, experimental: true }
+          - { name: "Linux x86-64",        os: ubuntu-latest }
+          - { name: "macOS Apple silicon", os: macos-latest }
     defaults:
       run:
         shell: bash -el {0}

@@ -43,7 +43,9 @@ def test_the_notebook_runs_and_reproduces_the_reference_table(tmp_path):
             src = re.sub(r"(?m)^CACHE_DIR = .*$", "CACHE_DIR = Path(r'%s')" % CACHE, src)
             assert src != c.source
             c.source = src
-    NotebookClient(nb, timeout=900, resources={"metadata": {"path": str(NB.parent)}}).execute()
+    # 75 s on a 24-core workstation, 6-7 min on GitHub's Apple-silicon runner, and over 15 min once on a shared 4-vCPU Linux runner:
+    # the limit only has to catch a hang, so it is generous (the CI job itself is capped at 60 minutes).
+    NotebookClient(nb, timeout=2400, resources={"metadata": {"path": str(NB.parent)}}).execute()
 
     got = pd.read_csv(work / "results.csv").set_index(["target", "ligand"])
     ref = pd.read_csv(NB.parent / "reference_results.csv").set_index(["target", "ligand"])

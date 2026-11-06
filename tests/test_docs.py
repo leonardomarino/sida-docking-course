@@ -1,4 +1,5 @@
 """The README is the installation contract: keep it consistent with the files it describes."""
+import os
 import re
 from pathlib import Path
 
@@ -60,3 +61,14 @@ def test_licence_file_matches_the_declared_licence():
 def test_no_stale_branch_or_private_repository_wording():
     for text in (README, NB_README):
         assert not re.search(r"feat/sida-docking-prototype|collaborator|\*\*private\*\*", text, re.I)
+
+
+def test_the_local_check_script_runs_what_the_ci_workflow_runs():
+    script_path = REPO / "tools" / "check_install.sh"
+    assert os.access(script_path, os.X_OK), "tools/check_install.sh must be executable"
+    script = script_path.read_text(encoding="utf-8")
+    ci = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    for shared in ("conda env create -f notebooks/environment.yml", "pip install -e .", "('4B63', '6X0H', '6X0J')",
+                   '-m "not slow" tests/test_screen.py tests/test_install.py tests/test_docs.py',
+                   "-m slow tests/test_screen.py tests/test_install.py tests/test_screen_notebook.py"):
+        assert shared in script and shared in ci, shared

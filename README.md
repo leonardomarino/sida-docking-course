@@ -281,7 +281,7 @@ sida-docking-course/
 ├── sidacore/                   Python library: preparation, boxes, redocking, clash analysis
 │   └── screen.py               the code behind the notebook
 ├── tests/                      unit tests and a notebook execution test
-├── tools/                      reference verification and environment-sync utilities
+├── tools/                      check_install.sh (install check), reference verification, environment-sync utilities
 ├── config/                     parameters of the SidA docking benchmark
 ├── confirm/                    optional Rosetta cross-checks (not needed for the notebook)
 ├── reports/                    documented validation steps (redocking, diagnosis, rescoring)
@@ -301,12 +301,25 @@ pytest -m "not slow" tests/test_screen.py                            # seconds: 
 pytest -m slow tests/test_screen.py tests/test_screen_notebook.py    # runs PDB2PQR, Meeko, Vina and the whole notebook (minutes)
 ```
 
-**Continuous integration.** [GitHub Actions](.github/workflows/ci.yml) repeats the installation steps above on a clean Linux and a clean macOS machine for every push
+Other test files in `tests/` belong to the validation steps and need the `sida-docking` environment (they use `fpocket`, which `sida-screen` does not contain).
+
+### Check an installation from scratch
+
+```bash
+tools/check_install.sh            # builds a new throwaway environment, follows the steps above, runs every test
+tools/check_install.sh --quick    # the same without the slow tests (docking and the whole notebook)
+```
+
+It needs only conda and git. It works on a copy of the repository with a new environment and a fresh package cache, so it never touches your own environments or your files, and it
+removes what it created when everything passes (`--keep` keeps it). If a step fails it stops, says which, and keeps the folder and the log. Run it after installing to be sure that
+the notebook will work, or when something does not.
+
+### Continuous integration
+
+[GitHub Actions](.github/workflows/ci.yml) repeats the installation steps above on a clean Linux and a clean macOS machine for every push
 and once a week (so a change in an upstream package is noticed), then runs the quick and slow tests, including the whole notebook. `tests/test_install.py` checks that the
 installed versions match `notebooks/environment.yml`, that every external program starts, and that the package is importable from outside the repository;
 `tests/test_docs.py` keeps this README consistent with the files it describes. In CI a skipped test counts as a failure.
-
-Other test files in `tests/` belong to the validation steps and need the `sida-docking` environment (they use `fpocket`, which `sida-screen` does not contain).
 
 ---
 
